@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Edit User - Admin Control</title>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            primary: "#001d69",
+            'primary-container': "#1d3583",
+            surface: "#f9f9ff",
+            'surface-container': "#e9edff",
+            'surface-container-lowest': "#ffffff",
+            'surface-container-high': "#e1e8fd",
+            'surface-container-highest': "#dce2f7",
+            'outline-variant': "#c5c5d3",
+            error: "#ba1a1a",
+            'error-container': "#ffdad6",
+            secondary: "#5c5e62",
+            onprimary: "#fff",
+            onsurface: "#141b2b"
+          },
+          fontFamily: {
+            sans: ["Manrope", "sans-serif"]
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    body { font-family: 'Manrope', sans-serif; }
+    .form-card-shadow { box-shadow: 0px 4px 20px rgba(0,0,0,0.04); }
+    body { min-height: max(884px, 100dvh); }
+    @media (min-width: 640px) {
+      main { max-width: 600px; margin-left: auto; margin-right: auto; }
+    }
+    @media (min-width: 1024px) {
+      main { max-width: 900px; }
+    }
+  </style>
+</head>
+<body class="bg-[#F4F5F9] min-h-screen pb-24">
+<header class="sticky top-0 z-50 bg-surface flex items-center justify-between px-4 py-3 w-full border-b border-outline-variant">
+  <div class="flex items-center gap-3">
+    <button class="p-2 transition-colors hover:bg-surface-container-high rounded-full">
+      <span class="material-symbols-outlined text-primary">arrow_back</span>
+    </button>
+    <h1 class="text-xl font-bold text-primary">Edit User</h1>
+  </div>
+  <div class="flex items-center gap-2">
+    <span class="material-symbols-outlined text-secondary p-2 hover:bg-surface-container-high rounded-full transition-colors cursor-pointer" data-icon="settings">settings</span>
+    <div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+      <img alt="Admin Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMJwnQ8ka3KeLv8jlA0qRT0mXRsAdY8PLXd2u1reu6GdfQeNfTEMWuMuAKYK5h1xbmTjVeSVR2ZjRl4JIa7tMF0c5vZ2ul0kucfzQOVRrFc7m7fDzoACFgEZmXwWBUXy0essXUUmaDtaWzLb6l6rngtBpUEZYAhhjXS0BkN2O70J-hbuPixY1iW4xM8ifI_JDEMxNN41ecJvalycr2rsMvv_sjovKXQKielXkTpAF4h7JeZR35T34LZKkCykpKkgRswKBVwVIM5NM"/>
+    </div>
+  </div>
+</header>
+<main class="px-4 pt-6 space-y-6">
+  <!-- Profile Section Card -->
+  <section class="bg-surface-container-lowest rounded-xl border border-outline-variant form-card-shadow overflow-hidden">
+    <div class="bg-[#F9FAFB] px-6 py-3 border-b border-outline-variant">
+      <span class="uppercase text-xs font-bold text-secondary tracking-wider">USER IDENTITY</span>
+    </div>
+    <div class="p-6 flex flex-col items-center gap-4">
+      <div class="relative group">
+        <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high shadow-sm">
+          <img alt="User Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_ihe0cvedg4Mo0b7pmPH7-5IDbkqCQXBSPBPW_-0Oc0_BxM4ovIXeMQdwdZ8AaZ8Ma7VXmUhqskzIVb7g53yoLFj353h0qbY-r0K0EutGXV6DQa_YpzwE-21qZMzv7HA6_MGvJr7_eqdsZI1VUyoPYsgMLvxeahyjz4TuVmoiMX4BqYyaWrZE0-XhpsOiu8W_0MKSU2YrBzeYjBRc1DGIEiGZTkwqGi3r4xh5VsnYDHMCj1zBO_p2WVEdFLQtB1VQKP-BVbeRT6s"/>
+        </div>
+        <button class="absolute bottom-0 right-0 bg-primary text-onprimary w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-surface transition-transform active:scale-95">
+          <span class="material-symbols-outlined text-[18px]">edit</span>
+        </button>
+      </div>
+      <div class="text-center">
+        <h2 class="text-lg font-bold text-onsurface">Elena Rodriguez</h2>
+        <p class="text-sm text-secondary">Senior Operations Manager</p>
+      </div>
+      <button class="bg-surface border border-primary text-primary px-4 py-2 rounded-lg text-xs font-semibold transition-all hover:bg-surface-container-high active:scale-95">
+        Change Photo
+      </button>
+    </div>
+  </section>
+  <!-- Form Section Card -->
+  <section class="bg-surface-container-lowest rounded-xl border border-outline-variant form-card-shadow overflow-hidden">
+    <div class="bg-[#F9FAFB] px-6 py-3 border-b border-outline-variant">
+      <span class="uppercase text-xs font-bold text-secondary tracking-wider">ACCOUNT DETAILS</span>
+    </div>
+    <div class="p-6 space-y-5">
+      <!-- Full Name Field -->
+      <div class="space-y-1.5">
+        <label class="uppercase text-xs font-bold text-secondary block">Full Name</label>
+        <input class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-base text-onsurface focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" type="text" value="Elena Rodriguez"/>
+      </div>
+      <!-- Email Field -->
+      <div class="space-y-1.5">
+        <label class="uppercase text-xs font-bold text-secondary block">Institutional Email</label>
+        <input class="w-full bg-surface border border-outline-variant rounded-lg px-4 py-2.5 text-base text-onsurface focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" type="email" value="e.rodriguez@institution.org"/>
+      </div>
+      <!-- Access Tier Toggle -->
+      <div class="space-y-1.5">
+        <label class="uppercase text-xs font-bold text-secondary block">Access Tier</label>
+        <div class="flex p-1 bg-surface-container rounded-xl border border-outline-variant gap-1">
+          <button class="flex-1 py-2 rounded-lg text-xs font-semibold transition-all bg-primary text-onprimary shadow-sm" id="tier-manager" onclick="setTier('manager'); return false;">Manager</button>
+          <button class="flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-secondary hover:bg-surface-container-high" id="tier-employee" onclick="setTier('employee'); return false;">Employee</button>
+        </div>
+      </div>
+      <!-- Active Status Switch -->
+      <div class="flex items-center justify-between py-2">
+        <div class="space-y-0.5">
+          <span class="text-base font-semibold text-onsurface">Active Status</span>
+          <p class="text-sm text-secondary">Allow user to access the platform</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input checked class="sr-only peer" type="checkbox"/>
+          <div class="w-11 h-6 bg-outline-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+        </label>
+      </div>
+    </div>
+  </section>
+  <!-- Action Buttons -->
+  <section class="space-y-3 pb-8">
+    <button class="w-full bg-primary text-onprimary py-3.5 rounded-xl text-base font-bold shadow-md transition-all hover:bg-primary-container active:scale-[0.98]">Save Changes</button>
+    <button class="w-full bg-transparent text-error py-3 rounded-xl text-base font-semibold transition-all hover:bg-error-container/20 active:bg-error-container/30">Delete User</button>
+  </section>
+</main>
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 bg-surface h-[72px] border-t border-outline-variant shadow-lg">
+  <a class="flex flex-col items-center justify-center bg-primary text-onprimary rounded-xl px-6 py-2 transition-all duration-200 ease-in-out" href="#">
+    <span class="material-symbols-outlined" data-icon="group" style="font-variation-settings: 'FILL' 1;">group</span>
+    <span class="text-xs font-semibold">Users</span>
+  </a>
+  <a class="flex flex-col items-center justify-center text-secondary px-6 py-2 transition-all duration-200 ease-in-out hover:text-primary" href="#">
+    <span class="material-symbols-outlined" data-icon="verified_user">verified_user</span>
+    <span class="text-xs font-semibold">Approvals</span>
+  </a>
+</nav>
+<script>
+function setTier(role) {
+  const managerBtn = document.getElementById('tier-manager');
+  const employeeBtn = document.getElementById('tier-employee');
+  if (role === 'manager') {
+    managerBtn.className = 'flex-1 py-2 rounded-lg text-xs font-semibold transition-all bg-primary text-onprimary shadow-sm';
+    employeeBtn.className = 'flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-secondary hover:bg-surface-container-high';
+  } else {
+    employeeBtn.className = 'flex-1 py-2 rounded-lg text-xs font-semibold transition-all bg-primary text-onprimary shadow-sm';
+    managerBtn.className = 'flex-1 py-2 rounded-lg text-xs font-semibold transition-all text-secondary hover:bg-surface-container-high';
+  }
+}
+</script>
+</body>
+</html>
