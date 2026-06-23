@@ -1,18 +1,16 @@
-const crypto = require('crypto');
 const { getPool, sql } = require('../config/db');
 const { sendSuccess, sendError, sendNotFound } = require('../helpers/responseHelper');
-
-const generateId = () => crypto.randomBytes(12).toString('hex');
+const { generateId } = require('../helpers/utils');
 
 const getAllSkills = async (req, res) => {
   try {
     const { departmentId } = req.query;
     const pool = await getPool();
     const request = pool.request();
-    let query = 'SELECT s.*, d.name AS departmentName FROM skills s LEFT JOIN departments d ON s.departmentId = d.id WHERE s.is_deleted = 0';
+    let query = 'SELECT s.*, d.name AS departmentName FROM skills s LEFT JOIN departments d ON s.departmentId = d.id AND d.is_deleted = 0 WHERE s.is_deleted = 0';
     if (departmentId && departmentId !== 'all') {
       query += ' AND s.departmentId = @departmentId';
-      request.input('departmentId', sql.NVarChar, departmentId);
+      request.input('departmentId', sql.NVarChar(24), departmentId); // skills.departmentId is nvarchar(24)
     }
     query += ' ORDER BY s.name ASC';
     const result = await request.query(query);
@@ -28,7 +26,7 @@ const getSkillById = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // skills._id is nvarchar(24)
       .query('SELECT * FROM skills WHERE _id = @id AND is_deleted = 0');
     if (!result.recordset.length) return sendNotFound(res, 'Skill not found');
     return sendSuccess(res, result.recordset[0]);
@@ -45,14 +43,14 @@ const createSkill = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('_id', sql.NVarChar, _id)
+      .input('_id', sql.NVarChar(24), _id) // skills._id is nvarchar(24)
       .input('name', sql.NVarChar, name)
       .input('description', sql.NVarChar, description || null)
       .input('category', sql.NVarChar, category)
       .input('isMachineRelated', sql.Bit, isMachineRelated ? 1 : 0)
       .input('isCritical', sql.Bit, isCritical ? 1 : 0)
       .input('femaleEligible', sql.Bit, femaleEligible ? 1 : 0)
-      .input('departmentId', sql.NVarChar, departmentId)
+      .input('departmentId', sql.NVarChar(24), departmentId) // skills.departmentId is nvarchar(24)
       .input('now', sql.DateTime2, now)
       .query(`
         INSERT INTO skills
@@ -73,14 +71,14 @@ const updateSkill = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // skills._id is nvarchar(24)
       .input('name', sql.NVarChar, name)
       .input('description', sql.NVarChar, description || null)
       .input('category', sql.NVarChar, category)
       .input('isMachineRelated', sql.Bit, isMachineRelated ? 1 : 0)
       .input('isCritical', sql.Bit, isCritical ? 1 : 0)
       .input('femaleEligible', sql.Bit, femaleEligible ? 1 : 0)
-      .input('departmentId', sql.NVarChar, departmentId)
+      .input('departmentId', sql.NVarChar(24), departmentId) // skills.departmentId is nvarchar(24)
       .query(`
         UPDATE skills
         SET name = @name, description = @description, category = @category,
@@ -102,7 +100,7 @@ const deleteSkill = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // skills._id is nvarchar(24)
       .query(`
         UPDATE skills
         SET is_deleted = 1, updatedAt = GETDATE()

@@ -1,18 +1,16 @@
-const crypto = require('crypto');
 const { getPool, sql } = require('../config/db');
 const { sendSuccess, sendError, sendNotFound } = require('../helpers/responseHelper');
-
-const generateId = () => crypto.randomBytes(12).toString('hex');
+const { generateId } = require('../helpers/utils');
 
 const getAllMachines = async (req, res) => {
   try {
     const { departmentId } = req.query;
     const pool = await getPool();
     const request = pool.request();
-    let query = 'SELECT m.*, d.name AS departmentName FROM machine m LEFT JOIN departments d ON m.departmentId = d.id WHERE m.is_deleted = 0';
+    let query = 'SELECT m.*, d.name AS departmentName FROM machine m LEFT JOIN departments d ON m.departmentId = d.id AND d.is_deleted = 0 WHERE m.is_deleted = 0';
     if (departmentId && departmentId !== 'all') {
       query += ' AND m.departmentId = @departmentId';
-      request.input('departmentId', sql.NVarChar, departmentId);
+      request.input('departmentId', sql.NVarChar(24), departmentId); // machine.departmentId is nvarchar(24)
     }
     query += ' ORDER BY m.name ASC';
     const result = await request.query(query);
@@ -28,7 +26,7 @@ const getMachineById = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // machine._id is nvarchar(24)
       .query('SELECT * FROM machine WHERE _id = @id AND is_deleted = 0');
     if (!result.recordset.length) return sendNotFound(res, 'Machine not found');
     return sendSuccess(res, result.recordset[0]);
@@ -45,10 +43,10 @@ const createMachine = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('_id', sql.NVarChar, _id)
+      .input('_id', sql.NVarChar(24), _id) // machine._id is nvarchar(24)
       .input('name', sql.NVarChar, name)
       .input('machineId', sql.NVarChar, machineId)
-      .input('departmentId', sql.NVarChar, departmentId)
+      .input('departmentId', sql.NVarChar(24), departmentId) // machine.departmentId is nvarchar(24)
       .input('type', sql.NVarChar, type)
       .input('manufacturer', sql.NVarChar, manufacturer)
       .input('model', sql.NVarChar, model)
@@ -74,9 +72,9 @@ const updateMachine = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // machine._id is nvarchar(24)
       .input('name', sql.NVarChar, name)
-      .input('departmentId', sql.NVarChar, departmentId)
+      .input('departmentId', sql.NVarChar(24), departmentId) // machine.departmentId is nvarchar(24)
       .input('type', sql.NVarChar, type)
       .input('manufacturer', sql.NVarChar, manufacturer)
       .input('model', sql.NVarChar, model)
@@ -103,7 +101,7 @@ const deleteMachine = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // machine._id is nvarchar(24)
       .query(`
         UPDATE machine
         SET is_deleted = 1, updatedAt = GETDATE()

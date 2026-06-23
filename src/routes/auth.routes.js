@@ -1,18 +1,21 @@
 const express = require('express');
 const router = express.Router();
+const { requireAuth } = require('../middleware/requireAuth'); // adjust path if needed
 const { 
   login, 
   validate, 
-  resetPassword, 
   changePassword,
-  forgotPassword          // ← ADDED
+  resetPasswordDirect,
+  submitPasswordRequest // Public password request submission
 } = require('../controllers/auth.controller');
 
+// Public routes (no authentication required)
 router.post('/login', login);
 router.post('/validate', validate);
-router.post('/forgot-password', forgotPassword);  // ← ADDED
-router.patch('/reset-password', resetPassword);
-router.patch('/change-password', changePassword);
+router.post('/password-requests', submitPasswordRequest); // Public route for password change requests
 
-module.exports = router;
+// Protected routes (require valid token)
+router.patch('/change-password', requireAuth, changePassword);
+router.post('/reset-password-direct', requireAuth, resetPasswordDirect);  // ← added & protected
 
+module.exports = router; 

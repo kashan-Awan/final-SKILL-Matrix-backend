@@ -1,8 +1,6 @@
-const crypto = require('crypto');
 const { getPool, sql } = require('../config/db');
 const { sendSuccess, sendError, sendNotFound } = require('../helpers/responseHelper');
-
-const generateId = () => crypto.randomBytes(12).toString('hex');
+const { generateId } = require('../helpers/utils');
 
 const getAllExportLogs = async (req, res) => {
   try {
@@ -22,7 +20,7 @@ const getExportLogById = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.Char(24), id)
       .query('SELECT * FROM export_log WHERE _id = @id AND is_deleted = 0');
     if (!result.recordset.length) return sendNotFound(res, 'Export log not found');
     return sendSuccess(res, result.recordset[0]);
@@ -39,7 +37,7 @@ const createExportLog = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('_id', sql.NVarChar, _id)
+      .input('_id', sql.Char(24), _id)
       .input('managerId', sql.NVarChar, managerId)
       .input('departmentId', sql.NVarChar, departmentId)
       .input('exportType', sql.NVarChar, exportType)
@@ -68,7 +66,7 @@ const updateExportLogStatus = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.Char(24), id)
       .input('status', sql.NVarChar, status)
       .input('recordCount', sql.Int, recordCount != null ? recordCount : 0)
       .input('errorMessage', sql.NVarChar, errorMessage || null)
@@ -91,7 +89,7 @@ const deleteExportLog = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.Char(24), id)
       .query(`
         UPDATE export_log
         SET is_deleted = 1, updatedAt = GETDATE()

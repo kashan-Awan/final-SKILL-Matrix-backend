@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Edit User - Admin Control</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #F4F5F9; }
+  </style>
+</head>
+<body class="min-h-screen pb-24">
+
+<header class="sticky top-0 z-50 bg-white flex items-center justify-between px-4 py-3 w-full border-b border-gray-200">
+  <div class="flex items-center gap-3">
+    <button onclick="window.location.href='/current-users.html'" class="p-2 transition-colors hover:bg-gray-100 rounded-full">
+      <svg class="w-5 h-5 text-[#1E3A8A]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 19l-7-7m0 0l7-7m-7 7h18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    </button>
+    <h1 class="text-xl font-bold text-[#1E3A8A]">Edit User</h1>
+  </div>
+  <div class="flex items-center gap-2">
+    <button id="logoutBtn" class="p-2 text-gray-500 hover:text-gray-700 rounded-full">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+    </button>
+  </div>
+</header>
+
+<main class="px-4 pt-6 pb-24 max-w-2xl mx-auto">
+  <!-- Loading State -->
+  <div id="loadingState" class="text-center py-10">
+    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-[#1E3A8A] border-t-transparent"></div>
+    <p class="mt-2 text-gray-500">Loading user data...</p>
+    <p id="loadingDebug" class="text-xs text-gray-400 mt-1"></p>
+  </div>
+
+  <!-- Error State -->
+  <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+    <p class="text-red-600 font-semibold">Error Loading User</p>
+    <p class="text-sm text-red-500 mt-1" id="errorMessage"></p>
+    <div class="mt-3 flex gap-2 justify-center">
+      <button onclick="window.location.href='/current-users.html'" class="px-4 py-2 bg-[#1E3A8A] text-white rounded-lg">Back to Users</button>
+      <button onclick="location.reload()" class="px-4 py-2 border border-gray-300 rounded-lg">Retry</button>
+    </div>
+  </div>
+
+  <!-- User Form -->
+  <div id="userForm" class="hidden space-y-6">
+    <!-- Profile Section -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6 text-center">
+      <img id="userAvatar" class="w-24 h-24 rounded-full mx-auto mb-3 object-cover" src=""/>
+      <h2 id="userNameDisplay" class="text-xl font-bold text-gray-800">-</h2>
+      <p id="userEmailDisplay" class="text-gray-500">-</p>
+      <p id="userStatusBadge" class="text-xs mt-2"></p>
+    </div>
+
+    <!-- Form Fields -->
+    <div class="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+        <input id="fullName" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none"/>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+        <input id="email" type="email" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none"/>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+        <input id="employeeId" type="text" class="w-full bg-gray-100 border border-gray-200 rounded-lg px-4 py-2 text-gray-500 cursor-not-allowed" readonly disabled/>
+        <p class="text-xs text-gray-400 mt-1">Employee ID cannot be changed</p>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Department</label>
+        <select id="departmentId" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none">
+          <option value="">Select Department</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+        <select id="role" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none">
+          <option value="EMPLOYEE">Employee</option>
+          <option value="MANAGER">Manager</option>
+          <option value="ADMIN">Admin</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+        <input id="phone" type="tel" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none" placeholder="+92 XXX XXXXXXX"/>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+        <select id="gender" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none">
+          <option value="">Select Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+        <input id="title" type="text" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none" placeholder="e.g., Senior Manager"/>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Years of Experience</label>
+        <input id="yearsExperience" type="number" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none" placeholder="0"/>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Hire Date</label>
+        <input id="hireDate" type="date" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] outline-none"/>
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-gray-100">
+        <div>
+          <span class="font-medium text-gray-700">Active Status</span>
+          <p class="text-sm text-gray-500">Allow user to access the platform</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input id="isActive" type="checkbox" class="sr-only peer"/>
+          <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#1E3A8A]"></div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="space-y-3">
+      <button id="saveBtn" class="w-full bg-[#1E3A8A] text-white py-3 rounded-xl font-semibold hover:bg-[#1e40af] transition active:scale-[0.98]">Save Changes</button>
+      <button id="deleteBtn" class="w-full border border-red-500 text-red-600 py-3 rounded-xl font-semibold hover:bg-red-50 transition active:scale-[0.98]">Delete User</button>
+    </div>
+  </div>
+</main>
+
+<nav class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 flex items-center justify-around py-3 px-4">
+  <button onclick="window.location.href='/current-users.html'" class="flex flex-col items-center text-gray-500 hover:text-[#1E3A8A] transition-colors">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+    <span class="text-xs mt-1">Users</span>
+  </button>
+  <button onclick="window.location.href='/approve-request.html'" class="flex flex-col items-center text-gray-500 hover:text-[#1E3A8A] transition-colors">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
+    <span class="text-xs mt-1">Approvals</span>
+  </button>
+</nav>
+
+<script>
+const getToken = () => localStorage.getItem('adminToken');
+const API_BASE = window.location.origin + '/api';
+
+// Get user ID from URL
+const urlParams = new URLSearchParams(window.location.search);
+const userId = urlParams.get('id');
+console.log('=== Edit User Page Loaded ===');
+console.log('User ID from URL:', userId);
+
+function checkAuth() {
+  const token = getToken();
+  console.log('Token exists?', !!token);
+  if (!token) {
+    window.location.href = '/login.html';
+    return false;
+  }
+  return true;
+}
+
+async function loadDepartments() {
+  try {
+    console.log('Loading departments...');
+    const response = await fetch(`${API_BASE}/departments`, {
+      headers: { 'Authorization': `Bearer ${getToken()}` }
+    });
+    const data = await response.json();
+    if (data.success) {
+      const deptSelect = document.getElementById('departmentId');
+      if (deptSelect) {
+        deptSelect.innerHTML = '<option value="">Select Department</option>';
+        data.data.forEach(dept => {
+          const option = document.createElement('option');
+          option.value = dept.id;
+          option.textContent = dept.name;
+          deptSelect.appendChild(option);
+        });
+        console.log('Departments loaded:', data.data.length);
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load departments:', err);
+  }
+}
+
+async function loadUser() {
+  if (!userId) {
+    const loadingDiv = document.getElementById('loadingState');
+    if (loadingDiv) loadingDiv.innerHTML = '<p class="text-red-500">No user ID provided</p>';
+    return;
+  }
+
+  const loadingDebug = document.getElementById('loadingDebug');
+  if (loadingDebug) loadingDebug.innerText = `Fetching user: ${userId}`;
+
+  try {
+    console.log('Fetching user data for ID:', userId);
+    const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+      headers: { 'Authorization': `Bearer ${getToken()}` }
+    });
+
+    console.log('Response status:', response.status);
+
+    if (response.status === 401) {
+      console.log('Unauthorized, redirecting to login');
+      localStorage.removeItem('adminToken');
+      window.location.href = '/login.html';
+      return;
+    }
+
+    if (response.status === 404) {
+      throw new Error('User not found');
+    }
+
+    const data = await response.json();
+    console.log('API Response:', data);
+
+    if (data.success) {
+      const user = data.data;
+      populateForm(user);
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('userForm').classList.remove('hidden');
+    } else {
+      throw new Error(data.message || 'Failed to load user');
+    }
+  } catch (err) {
+    console.error('Error loading user:', err);
+    document.getElementById('loadingState').classList.add('hidden');
+    document.getElementById('errorState').classList.remove('hidden');
+    document.getElementById('errorMessage').innerText = err.message;
+  }
+}
+
+function populateForm(user) {
+  console.log('Populating form with user data:', user);
+  
+  document.getElementById('fullName').value = user.name || '';
+  document.getElementById('email').value = user.email || '';
+  document.getElementById('employeeId').value = user.employeeId || '';
+  document.getElementById('departmentId').value = user.departmentId || '';
+  document.getElementById('phone').value = user.phone || '';
+  document.getElementById('gender').value = user.gender || '';
+  document.getElementById('title').value = user.title || '';
+  document.getElementById('yearsExperience').value = user.yearsExperience || '';
+  document.getElementById('role').value = user.role || 'EMPLOYEE';
+  
+  if (user.hireDate) {
+    document.getElementById('hireDate').value = user.hireDate.split('T')[0];
+  }
+  
+  const isActive = user.isActive === 1 || user.isActive === true;
+  document.getElementById('isActive').checked = isActive;
+  
+  document.getElementById('userNameDisplay').innerText = user.name || '-';
+  document.getElementById('userEmailDisplay').innerText = user.email || '-';
+  
+  // Show status badge
+  const statusBadge = document.getElementById('userStatusBadge');
+  if (statusBadge) {
+    if (isActive) {
+      statusBadge.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">ACTIVE</span>';
+    } else {
+      statusBadge.innerHTML = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">INACTIVE</span>';
+    }
+  }
+  
+  document.getElementById('userAvatar').src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || 'User')}&background=1E3A8A&color=fff`;
+}
+
+async function saveUser() {
+  const formData = {
+    name: document.getElementById('fullName').value.trim(),
+    email: document.getElementById('email').value.trim(),
+    role: document.getElementById('role').value,
+    departmentId: document.getElementById('departmentId').value || null,
+    phone: document.getElementById('phone').value || null,
+    gender: document.getElementById('gender').value || null,
+    title: document.getElementById('title').value || null,
+    yearsExperience: parseInt(document.getElementById('yearsExperience').value) || null,
+    hireDate: document.getElementById('hireDate').value || null,
+    isActive: document.getElementById('isActive').checked ? 1 : 0
+  };
+
+  if (!formData.name) {
+    alert('Full name is required');
+    return;
+  }
+  if (!formData.email) {
+    alert('Email is required');
+    return;
+  }
+  
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(formData.email)) {
+    alert('Please enter a valid email address');
+    return;
+  }
+
+  console.log('Saving user data:', formData);
+
+  try {
+    const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${getToken()}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    });
+
+    const data = await response.json();
+    console.log('Save response:', data);
+
+    if (data.success) {
+      const statusMsg = formData.isActive ? 'activated' : 'deactivated';
+      alert(`User ${statusMsg} successfully!`);
+      window.location.href = '/current-users.html';
+    } else {
+      alert(data.message || 'Failed to update user');
+    }
+  } catch (err) {
+    console.error('Error saving user:', err);
+    alert('Error saving user: ' + err.message);
+  }
+}
+
+async function deleteUser() {
+  const userName = document.getElementById('userNameDisplay').innerText;
+  
+  if (!confirm(`Are you sure you want to delete "${userName}"?\n\nThis action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${getToken()}` }
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      alert('User deleted successfully');
+      window.location.href = '/current-users.html';
+    } else {
+      alert(data.message || 'Failed to delete user');
+    }
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    alert('Error deleting user: ' + err.message);
+  }
+}
+
+// Event listeners
+document.getElementById('saveBtn')?.addEventListener('click', saveUser);
+document.getElementById('deleteBtn')?.addEventListener('click', deleteUser);
+document.getElementById('logoutBtn')?.addEventListener('click', () => {
+  console.log('Logging out');
+  localStorage.removeItem('adminToken');
+  window.location.href = '/login.html';
+});
+
+// Initialize
+if (checkAuth() && userId) {
+  loadDepartments();
+  loadUser();
+} else if (!userId) {
+  document.getElementById('loadingState').innerHTML = '<p class="text-red-500">No user ID specified in URL</p>';
+}
+</script>
+</body>
+</html>

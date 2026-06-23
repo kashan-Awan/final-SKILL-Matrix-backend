@@ -1,26 +1,13 @@
-const sendSuccess = (res, data, message = 'Success', statusCode = 200) => {
-  return res.status(statusCode).json({
-    success: true,
-    message,
-    data,
-  });
-};
+function sendSuccess(res, data, message = 'Success', statusCode = 200) {
+  return res.status(statusCode).json({ success: true, data, message });
+}
 
-const sendError = (res, message = 'An error occurred', statusCode = 500, errors = null) => {
-  const response = {
-    success: false,
-    message,
-  };
-  if (errors) response.errors = errors;
-  return res.status(statusCode).json(response);
-};
+function sendError(res, message = 'Error', statusCode = 500) {
+  return res.status(statusCode).json({ success: false, message });
+}
 
-const sendNotFound = (res, message = 'Resource not found') => {
-  return sendError(res, message, 404);
-};
+function sendNotFound(res, message = 'Not Found') {
+  return res.status(404).json({ success: false, message });
+}
 
-const sendBadRequest = (res, message = 'Bad request', errors = null) => {
-  return sendError(res, message, 400, errors);
-};
-
-module.exports = { sendSuccess, sendError, sendNotFound, sendBadRequest };
+module.exports = { sendSuccess, sendError, sendNotFound };

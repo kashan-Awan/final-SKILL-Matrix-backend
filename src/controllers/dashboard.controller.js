@@ -8,27 +8,34 @@ const getDashboardStats = async (req, res) => {
     const pool = await getPool();
 
     const [empCount, deptCount, skillCount, byDept, skillLevels, genders] = await Promise.all([
-      pool.request().query("SELECT COUNT(*) AS count FROM dawlance_user WHERE is_deleted = 0 AND UPPER(role) IN ('EMPLOYEE','MANAGER')"),
+      pool.request().query(`
+        SELECT COUNT(u._id) AS count 
+        FROM dawlance_user u
+        LEFT JOIN departments d ON u.departmentId = d.id AND d.is_deleted = 0
+        WHERE u.is_deleted = 0 AND d.is_deleted = 0 AND UPPER(u.role) IN ('EMPLOYEE','MANAGER')`),
       pool.request().query("SELECT COUNT(*) AS count FROM departments WHERE is_deleted = 0"),
       pool.request().query("SELECT COUNT(*) AS count FROM skills WHERE is_deleted = 0"),
       pool.request().query(`
         SELECT d.name AS department, COUNT(u._id) AS count
         FROM dawlance_user u
-        JOIN departments d ON u.departmentId = d.id
-        WHERE u.is_deleted = 0 AND UPPER(u.role) IN ('EMPLOYEE','MANAGER')
+        LEFT JOIN departments d ON u.departmentId = d.id AND d.is_deleted = 0
+        WHERE u.is_deleted = 0 AND d.is_deleted = 0 AND UPPER(u.role) IN ('EMPLOYEE','MANAGER')
         GROUP BY d.name
       `),
       pool.request().query(`
-        SELECT level, COUNT(*) AS count
-        FROM employee_skills
-        WHERE is_deleted = 0
-        GROUP BY level
+        SELECT UPPER(LTRIM(RTRIM(es.level))) AS level, COUNT(es.id) AS count
+        FROM employee_skills es
+        JOIN dawlance_user u ON es.employee_id = u._id
+        LEFT JOIN departments d ON u.departmentId = d.id AND d.is_deleted = 0
+        WHERE es.is_deleted = 0 AND u.is_deleted = 0 AND d.is_deleted = 0
+        GROUP BY UPPER(LTRIM(RTRIM(es.level)))
       `),
       pool.request().query(`
-        SELECT gender, COUNT(*) AS count
-        FROM dawlance_user
-        WHERE is_deleted = 0 AND UPPER(role) IN ('EMPLOYEE','MANAGER') AND gender IS NOT NULL
-        GROUP BY gender
+        SELECT u.gender, COUNT(u._id) AS count
+        FROM dawlance_user u
+        LEFT JOIN departments d ON u.departmentId = d.id AND d.is_deleted = 0
+        WHERE u.is_deleted = 0 AND d.is_deleted = 0 AND UPPER(u.role) IN ('EMPLOYEE','MANAGER') AND u.gender IS NOT NULL AND u.gender != ''
+        GROUP BY u.gender
       `),
     ]);
 
@@ -63,9 +70,9 @@ const getDepartmentPerformance = async (req, res) => {
         SELECT
           MONTH(wh.workDate)               AS month,
           d.name                           AS departmentName,
-          AVG(wh.productivity * 0.5 + wh.qualityScore * 0.5) AS score
+          AVG(CAST(wh.productivity AS FLOAT) * 0.5 + CAST(wh.qualityScore AS FLOAT) * 0.5) AS score
         FROM emploee_work_history wh
-        LEFT JOIN departments d ON wh.departmentId = d.id
+        LEFT JOIN departments d ON wh.departmentId = d.id AND d.is_deleted = 0
         WHERE wh.is_deleted = 0 AND YEAR(wh.workDate) = @year
         GROUP BY MONTH(wh.workDate), d.id, d.name
         ORDER BY month ASC
@@ -109,20 +116,20 @@ const getMachineScores = async (req, res) => {
         d.id         AS departmentId,
         d.name       AS departmentName,
         COUNT(DISTINCT u._id)  AS operatorCount,
-        AVG(CAST(
-          CASE LOWER(es.level)
-            WHEN 'low'      THEN 1
-            WHEN 'medium'   THEN 2
-            WHEN 'high'     THEN 3
-            WHEN 'advanced' THEN 4
-            WHEN 'expert'   THEN 4
-            ELSE 1
-          END AS FLOAT)) AS avgSkillScore
+        ISNULL(AVG(CAST(
+          CASE UPPER(LTRIM(RTRIM(es.level)))
+            WHEN 'LOW'      THEN 1
+            WHEN 'MEDIUM'   THEN 2
+            WHEN 'HIGH'     THEN 3
+            WHEN 'ADVANCED' THEN 4
+            WHEN 'EXPERT'   THEN 4
+            ELSE 0
+          END AS FLOAT)), 0) AS avgSkillScore
       FROM machine m
-      LEFT JOIN departments d    ON m.departmentId = d.id
+      LEFT JOIN departments d    ON m.departmentId = d.id AND d.is_deleted = 0
       LEFT JOIN dawlance_user u  ON u.departmentId = m.departmentId AND u.is_deleted = 0
       LEFT JOIN employee_skills es ON es.employee_id = u._id AND es.is_deleted = 0
-      WHERE m.is_deleted = 0 ${deptFilter}
+      WHERE m.is_deleted = 0 AND d.is_deleted = 0 ${deptFilter}
       GROUP BY m._id, m.name, m.type, m.status, d.id, d.name
       ORDER BY d.name, m.name
     `);

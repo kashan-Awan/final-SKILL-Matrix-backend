@@ -1,8 +1,6 @@
-const crypto = require('crypto');
 const { getPool, sql } = require('../config/db');
 const { sendSuccess, sendError, sendNotFound } = require('../helpers/responseHelper');
-
-const generateId = () => crypto.randomBytes(12).toString('hex');
+const { generateId } = require('../helpers/utils');
 
 const getAllWorkHistory = async (req, res) => {
   try {
@@ -14,7 +12,7 @@ const getAllWorkHistory = async (req, res) => {
     let where = 'WHERE wh.is_deleted = 0';
     if (employeeId) {
       where += ' AND wh.employeeId = @employeeId';
-      request.input('employeeId', sql.NVarChar, employeeId);
+      request.input('employeeId', sql.NVarChar(24), employeeId); // emploee_work_history.employeeId is nvarchar(24)
     }
     if (department) {
       where += ' AND d.name = @department';
@@ -44,7 +42,7 @@ const getAllWorkHistory = async (req, res) => {
         wh.shift,
         wh.createdAt
       FROM emploee_work_history wh
-      LEFT JOIN dawlance_user u ON wh.employeeId = u._id AND u.is_deleted = 0
+      LEFT JOIN dawlance_user u ON wh.employeeId = u._id AND u.is_deleted =0
       LEFT JOIN departments d ON wh.departmentId = d.id AND d.is_deleted = 0
       LEFT JOIN machine m ON wh.machineId = m._id AND m.is_deleted = 0
       LEFT JOIN skills s ON wh.skillId = s._id AND s.is_deleted = 0
@@ -65,7 +63,7 @@ const getWorkHistoryById = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // emploee_work_history._id is nvarchar(24)
       .query('SELECT * FROM emploee_work_history WHERE _id = @id AND is_deleted = 0');
     if (!result.recordset.length) return sendNotFound(res, 'Work history record not found');
     return sendSuccess(res, result.recordset[0]);
@@ -80,7 +78,7 @@ const getWorkHistoryByEmployee = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('employeeId', sql.NVarChar, employeeId)
+      .input('employeeId', sql.NVarChar(24), employeeId) // emploee_work_history.employeeId is nvarchar(24)
       .query('SELECT * FROM emploee_work_history WHERE employeeId = @employeeId AND is_deleted = 0 ORDER BY workDate DESC');
     return sendSuccess(res, result.recordset, 'Work history retrieved successfully');
   } catch (err) {
@@ -96,11 +94,11 @@ const createWorkHistory = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('_id', sql.NVarChar, _id)
-      .input('employeeId', sql.NVarChar, employeeId)
-      .input('departmentId', sql.NVarChar, departmentId)
-      .input('machineId', sql.NVarChar, machineId)
-      .input('skillId', sql.NVarChar, skillId)
+      .input('_id', sql.NVarChar(24), _id) // emploee_work_history._id is nvarchar(24)
+      .input('employeeId', sql.NVarChar(24), employeeId) // emploee_work_history.employeeId is nvarchar(24)
+      .input('departmentId', sql.NVarChar(24), departmentId) // emploee_work_history.departmentId is nvarchar(24)
+      .input('machineId', sql.NVarChar(24), machineId) // emploee_work_history.machineId is nvarchar(24)
+      .input('skillId', sql.NVarChar(24), skillId) // emploee_work_history.skillId is nvarchar(24)
       .input('workDate', sql.DateTime2, new Date(workDate))
       .input('hoursWorked', sql.Int, hoursWorked)
       .input('productivity', sql.Int, productivity)
@@ -127,9 +125,9 @@ const updateWorkHistory = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
-      .input('machineId', sql.NVarChar, machineId)
-      .input('skillId', sql.NVarChar, skillId)
+      .input('id', sql.NVarChar(24), id) // emploee_work_history._id is nvarchar(24)
+      .input('machineId', sql.NVarChar(24), machineId) // emploee_work_history.machineId is nvarchar(24)
+      .input('skillId', sql.NVarChar(24), skillId) // emploee_work_history.skillId is nvarchar(24)
       .input('workDate', sql.DateTime2, new Date(workDate))
       .input('hoursWorked', sql.Int, hoursWorked)
       .input('productivity', sql.Int, productivity)
@@ -157,7 +155,7 @@ const deleteWorkHistory = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // emploee_work_history._id is nvarchar(24)
       .query(`
         UPDATE emploee_work_history
         SET is_deleted = 1, updatedAt = GETDATE()

@@ -1,16 +1,35 @@
-const crypto = require('crypto');
 const { getPool, sql } = require('../config/db');
 const { sendSuccess, sendError, sendNotFound } = require('../helpers/responseHelper');
-
-const generateId = () => crypto.randomBytes(12).toString('hex');
+const { generateId } = require('../helpers/utils');
 
 const getAllSkillMatrices = async (req, res) => {
   try {
     const pool = await getPool();
     const result = await pool
       .request()
-      .query('SELECT * FROM skill_matrix WHERE is_deleted = 0 ORDER BY createdAt DESC');
-    return sendSuccess(res, result.recordset, 'Skill matrices retrieved successfully');
+      .query(`
+        SELECT sm.*, sm._id AS id, d.name AS departmentName, u.name AS employeeName
+        FROM skill_matrix sm
+        LEFT JOIN departments d ON sm.departmentId = d.id AND d.is_deleted = 0
+        LEFT JOIN dawlance_user u ON sm.employeeId = u._id AND u.is_deleted = 0
+        WHERE sm.is_deleted = 0 
+        ORDER BY sm.createdAt DESC
+      `);
+    
+    const parsedData = result.recordset.map(row => ({
+      ...row,
+      matrixData: (() => {
+        if (!row.matrixData) return null;
+        try {
+          return JSON.parse(row.matrixData);
+        } catch (e) {
+          console.error("JSON Parse Error in getAll:", e);
+          return null;
+        }
+      })()
+    }));
+
+    return sendSuccess(res, parsedData, 'Skill matrices retrieved successfully');
   } catch (err) {
     return sendError(res, err.message);
   }
@@ -22,10 +41,25 @@ const getSkillMatrixById = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
-      .query('SELECT * FROM skill_matrix WHERE _id = @id AND is_deleted = 0');
+      .input('id', sql.NVarChar(24), id) // skill_matrix._id is nvarchar(24)
+      .query(`
+        SELECT sm.*, sm._id AS id, d.name AS departmentName, u.name AS employeeName
+        FROM skill_matrix sm
+        LEFT JOIN departments d ON sm.departmentId = d.id AND d.is_deleted = 0
+        LEFT JOIN dawlance_user u ON sm.employeeId = u._id AND u.is_deleted = 0
+        WHERE sm._id = @id AND sm.is_deleted = 0
+      `);
+    
     if (!result.recordset.length) return sendNotFound(res, 'Skill matrix not found');
-    return sendSuccess(res, result.recordset[0]);
+    
+    const matrix = result.recordset[0];
+    if (matrix.matrixData) {
+      try {
+        matrix.matrixData = JSON.parse(matrix.matrixData);
+      } catch (e) { console.error("JSON Parse Error:", e); }
+    }
+
+    return sendSuccess(res, matrix);
   } catch (err) {
     return sendError(res, err.message);
   }
@@ -37,9 +71,28 @@ const getSkillMatrixByEmployee = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('employeeId', sql.NVarChar, employeeId)
-      .query('SELECT * FROM skill_matrix WHERE employeeId = @employeeId AND is_deleted = 0');
-    return sendSuccess(res, result.recordset, 'Skill matrix retrieved successfully');
+      .input('employeeId', sql.NVarChar(24), employeeId) // skill_matrix.employeeId is nvarchar(24)
+      .query(`
+        SELECT sm.*, sm._id AS id, d.name AS departmentName, u.name AS employeeName
+        FROM skill_matrix sm
+        LEFT JOIN departments d ON sm.departmentId = d.id AND d.is_deleted = 0
+        LEFT JOIN dawlance_user u ON sm.employeeId = u._id AND u.is_deleted = 0
+        WHERE sm.employeeId = @employeeId AND sm.is_deleted = 0
+      `);
+    
+    const parsedData = result.recordset.map(row => ({
+      ...row,
+      matrixData: (() => {
+        if (!row.matrixData) return null;
+        try {
+          return JSON.parse(row.matrixData);
+        } catch (e) {
+          console.error("JSON Parse Error in getByEmployee:", e);
+          return null;
+        }
+      })()
+    }));
+    return sendSuccess(res, parsedData, 'Skill matrix retrieved successfully');
   } catch (err) {
     return sendError(res, err.message);
   }
@@ -51,9 +104,28 @@ const getSkillMatrixByDepartment = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('departmentId', sql.NVarChar, departmentId)
-      .query('SELECT * FROM skill_matrix WHERE departmentId = @departmentId AND is_deleted = 0');
-    return sendSuccess(res, result.recordset, 'Skill matrix retrieved successfully');
+      .input('departmentId', sql.NVarChar(24), departmentId) // skill_matrix.departmentId is nvarchar(24)
+      .query(`
+        SELECT sm.*, sm._id AS id, d.name AS departmentName, u.name AS employeeName
+        FROM skill_matrix sm
+        LEFT JOIN departments d ON sm.departmentId = d.id AND d.is_deleted = 0
+        LEFT JOIN dawlance_user u ON sm.employeeId = u._id AND u.is_deleted = 0
+        WHERE sm.departmentId = @departmentId AND sm.is_deleted = 0
+      `);
+    
+    const parsedData = result.recordset.map(row => ({
+      ...row,
+      matrixData: (() => {
+        if (!row.matrixData) return null;
+        try {
+          return JSON.parse(row.matrixData);
+        } catch (e) {
+          console.error("JSON Parse Error in getByDepartment:", e);
+          return null;
+        }
+      })()
+    }));
+    return sendSuccess(res, parsedData, 'Skill matrix retrieved successfully');
   } catch (err) {
     return sendError(res, err.message);
   }
@@ -67,14 +139,14 @@ const createSkillMatrix = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('_id', sql.NVarChar, _id)
-      .input('departmentId', sql.NVarChar, departmentId)
+      .input('_id', sql.NVarChar(24), _id) // skill_matrix._id is nvarchar(24)
+      .input('departmentId', sql.NVarChar(24), departmentId) // skill_matrix.departmentId is nvarchar(24)
       .input('name', sql.NVarChar, name)
-      .input('employeeId', sql.NVarChar, employeeId)
+      .input('employeeId', sql.NVarChar(24), employeeId) // skill_matrix.employeeId is nvarchar(24)
       .input('description', sql.NVarChar, description || null)
       .input('matrixData', sql.NVarChar, matrixData ? JSON.stringify(matrixData) : null)
       .input('version', sql.NVarChar, version || '1.0')
-      .input('createdBy', sql.NVarChar, createdBy)
+      .input('createdBy', sql.NVarChar(24), createdBy) // skill_matrix.createdBy is nvarchar(24)
       .input('now', sql.DateTime2, now)
       .query(`
         INSERT INTO skill_matrix
@@ -82,7 +154,14 @@ const createSkillMatrix = async (req, res) => {
         OUTPUT INSERTED.*
         VALUES (@_id, @departmentId, @name, @employeeId, @description, @matrixData, @version, 1, @createdBy, 0, 0, @now, @now)
       `);
-    return sendSuccess(res, result.recordset[0], 'Skill matrix created successfully', 201);
+    
+    const created = result.recordset[0];
+    if (created.matrixData) {
+      created.matrixData = JSON.parse(created.matrixData);
+    }
+    created.id = created._id;
+
+    return sendSuccess(res, created, 'Skill matrix created successfully', 201);
   } catch (err) {
     return sendError(res, err.message);
   }
@@ -95,7 +174,7 @@ const updateSkillMatrix = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // skill_matrix._id is nvarchar(24)
       .input('name', sql.NVarChar, name)
       .input('description', sql.NVarChar, description || null)
       .input('matrixData', sql.NVarChar, matrixData ? JSON.stringify(matrixData) : null)
@@ -108,8 +187,16 @@ const updateSkillMatrix = async (req, res) => {
         OUTPUT INSERTED.*
         WHERE _id = @id AND is_deleted = 0
       `);
+
     if (!result.recordset.length) return sendNotFound(res, 'Skill matrix not found');
-    return sendSuccess(res, result.recordset[0], 'Skill matrix updated successfully');
+    
+    const updated = result.recordset[0];
+    if (updated.matrixData) {
+      updated.matrixData = JSON.parse(updated.matrixData);
+    }
+    updated.id = updated._id;
+
+    return sendSuccess(res, updated, 'Skill matrix updated successfully');
   } catch (err) {
     return sendError(res, err.message);
   }
@@ -121,7 +208,7 @@ const deleteSkillMatrix = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, id)
+      .input('id', sql.NVarChar(24), id) // skill_matrix._id is nvarchar(24)
       .query(`
         UPDATE skill_matrix
         SET is_deleted = 1, updatedAt = GETDATE()

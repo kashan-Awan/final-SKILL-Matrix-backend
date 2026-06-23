@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Register - Skills Matrix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', system-ui, sans-serif; }
+        body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; }
+        .card-shadow { box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); }
+        .input-field:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .btn-submit { background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); transition: all 0.3s ease; }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.2); }
+        .btn-submit:active { transform: translateY(0); }
+        .spinner { border: 2px solid #f3f3f3; border-top: 2px solid #1e3a8a; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; margin-right: 8px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .success-message { background: #d1fae5; border-left: 4px solid #10b981; color: #065f46; }
+        .error-message { background: #fee2e2; border-left: 4px solid #ef4444; color: #991b1b; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl card-shadow w-full max-w-md overflow-hidden">
+        <div class="bg-gradient-to-r from-blue-900 to-indigo-900 px-6 py-8 text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-white/20 rounded-full mb-4">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-white">Create New Account</h1>
+            <p class="text-blue-200 text-sm mt-1">Skills Matrix Portal — Dawlance</p>
+        </div>
+        <div class="p-6">
+            <div class="bg-blue-50 rounded-xl p-4 mb-6 text-sm text-blue-800">
+                Your request will be sent to an administrator for approval.
+            </div>
+            <form id="registerForm" class="space-y-5">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Full Name *</label>
+                    <input type="text" id="name" required class="input-field w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500" placeholder="e.g., Muhammad Ahmed">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Institutional Email *</label>
+                    <input type="email" id="email" required class="input-field w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500" placeholder="abdul.shakoor@dawlance.com">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Employee ID (Optional)</label>
+                    <input type="text" id="employeeId" class="input-field w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500" placeholder="e.g., EMP001">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Password *</label>
+                    <input type="password" id="password" required class="input-field w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500" placeholder="••••••••">
+                    <p class="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Confirm Password *</label>
+                    <input type="password" id="confirmPassword" required class="input-field w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500" placeholder="••••••••">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 uppercase tracking-wider mb-2">Register As *</label>
+                    <select id="role" required class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option value="employee">👤 Employee</option>
+                        <option value="manager">👔 Manager</option>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Admin accounts can only be created by existing administrators.</p>
+                </div>
+                <button type="submit" class="btn-submit w-full text-white py-3 rounded-xl font-semibold shadow-md">
+                    <span id="submitText">CREATE ACCOUNT</span>
+                    <span id="submitSpinner" class="hidden"></span>
+                </button>
+            </form>
+            <div class="mt-6 text-center">
+                <a href="/login.html" class="text-sm text-indigo-600 hover:underline">← Back to login</a>
+            </div>
+            <div id="message" class="mt-4 text-center text-sm rounded-xl p-3 hidden"></div>
+        </div>
+    </div>
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        const form = document.getElementById('registerForm');
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const employeeId = document.getElementById('employeeId').value.trim();
+            const password = document.getElementById('password').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            const role = document.getElementById('role').value;
+            const messageDiv = document.getElementById('message');
+            const submitBtn = form.querySelector('button');
+            const submitText = document.getElementById('submitText');
+            const submitSpinner = document.getElementById('submitSpinner');
+
+            if (!name || !email || !password || !role) {
+                showMessage('All required fields must be filled.', 'error');
+                return;
+            }
+            if (password !== confirm) {
+                showMessage('Passwords do not match.', 'error');
+                return;
+            }
+            if (password.length < 6) {
+                showMessage('Password must be at least 6 characters.', 'error');
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitText.classList.add('hidden');
+            submitSpinner.classList.remove('hidden');
+            messageDiv.classList.add('hidden');
+
+            try {
+                const payload = {
+                    name,
+                    email,
+                    employeeId: employeeId || null,
+                    password,
+                    role: role.toUpperCase()
+                };
+                const res = await fetch(`${API_BASE}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok && data.success) {
+                    showMessage('✅ Registration request submitted! Wait for admin approval.', 'success');
+                    form.reset();
+                } else {
+                    showMessage(data.message || 'Registration failed.', 'error');
+                }
+            } catch (err) {
+                showMessage('Network error: ' + err.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitText.classList.remove('hidden');
+                submitSpinner.classList.add('hidden');
+            }
+        });
+
+        function showMessage(msg, type) {
+            const div = document.getElementById('message');
+            div.innerHTML = msg;
+            div.className = `mt-4 text-center text-sm rounded-xl p-3 ${type === 'error' ? 'error-message' : 'success-message'}`;
+            div.classList.remove('hidden');
+            setTimeout(() => div.classList.add('hidden'), 5000);
+        }
+
+        // Real‑time password match check
+        const pwd = document.getElementById('password');
+        const confirm = document.getElementById('confirmPassword');
+        function checkMatch() {
+            if (confirm.value.length && pwd.value !== confirm.value) {
+                showMessage('⚠️ Passwords do not match.', 'error');
+            } else if (pwd.value === confirm.value && confirm.value.length) {
+                const msgDiv = document.getElementById('message');
+                if (msgDiv.innerHTML.includes('do not match')) msgDiv.classList.add('hidden');
+            }
+        }
+        pwd.addEventListener('input', checkMatch);
+        confirm.addEventListener('input', checkMatch);
+    </script>
+</body>
+</html>

@@ -9,7 +9,7 @@ const {
 } = require('../controllers/employeeSkill.controller');
 
 router.get('/', getAllEmployeeSkills);
-router.get('/employee/:employeeId', getEmployeeSkillsByEmployeeId);
+router.get('/:employeeId', getEmployeeSkillsByEmployeeId);
 router.post('/', assignSkillToEmployee);
 router.put('/:id', updateEmployeeSkill);
 router.delete('/:id', removeEmployeeSkill);

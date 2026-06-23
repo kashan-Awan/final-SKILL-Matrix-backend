@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin Control - User Management</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    * {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    body {
+      background: linear-gradient(135deg, #f5f7fa 0%, #e9eef5 100%);
+    }
+    
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    
+    .user-card {
+      transition: all 0.2s ease;
+      border-left: 3px solid transparent;
+    }
+    
+    .user-card:hover {
+      transform: translateY(-2px);
+      border-left-color: #1E3A8A;
+      background: #fafbff;
+    }
+    
+    .filter-btn {
+      transition: all 0.2s ease;
+    }
+    
+    .filter-btn:hover {
+      transform: translateY(-1px);
+    }
+    
+    .add-btn {
+      transition: all 0.2s ease;
+    }
+    
+    .add-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+    }
+    
+    .nav-btn {
+      transition: all 0.2s ease;
+    }
+    
+    .nav-btn:hover {
+      transform: translateY(-2px);
+    }
+    
+    .status-active {
+      background: #d1fae5;
+      color: #059669;
+    }
+    
+    .status-inactive {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+    
+    .search-input {
+      transition: all 0.2s ease;
+    }
+    
+    .search-input:focus {
+      box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+    }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- Header -->
+<header class="bg-white border-b border-gray-200 px-6 py-4 sticky top-0 z-50 shadow-sm">
+  <div class="max-w-7xl mx-auto flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 bg-gradient-to-br from-[#1E3A8A] to-[#2563eb] rounded-xl flex items-center justify-center shadow-md">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+          </svg>
+        </div>
+        <h1 class="text-xl font-bold text-gray-800">Admin Control</h1>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="text-right hidden sm:block">
+        <p class="text-xs text-gray-500">Signed in as</p>
+        <p class="text-sm font-semibold text-gray-700">Administrator</p>
+      </div>
+      <button id="logoutBtn" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all duration-200">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-8 pb-32">
+  <!-- Page Title -->
+  <div class="mb-8">
+    <h2 class="text-2xl font-bold text-gray-800">User Management</h2>
+    <p class="text-gray-500 text-sm mt-1">View, search, filter and manage all users</p>
+  </div>
+
+  <!-- Search Bar -->
+  <section class="relative mb-6">
+    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+      <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+      </svg>
+    </div>
+    <input id="searchInput" class="search-input block w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#1E3A8A] focus:border-[#1E3A8A] text-sm shadow-sm outline-none transition-all" placeholder="Search by name, email or employee ID..." type="text"/>
+  </section>
+
+  <!-- Filter Chips -->
+  <section class="flex gap-2 overflow-x-auto pb-3 hide-scrollbar mb-8">
+    <button data-filter="all" class="filter-btn px-6 py-2.5 rounded-xl bg-[#1E3A8A] text-white text-sm font-semibold shadow-md transition-all">All Users</button>
+    <button data-filter="ADMIN" class="filter-btn px-5 py-2.5 rounded-xl bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 shadow-sm transition-all">Admin</button>
+    <button data-filter="MANAGER" class="filter-btn px-5 py-2.5 rounded-xl bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 shadow-sm transition-all">Manager</button>
+    <button data-filter="EMPLOYEE" class="filter-btn px-5 py-2.5 rounded-xl bg-white text-gray-600 text-sm font-semibold hover:bg-gray-100 shadow-sm transition-all">Employee</button>
+  </section>
+
+  <!-- User Cards Container -->
+  <section class="flex flex-col gap-4" id="userCardsContainer">
+    <div class="text-center text-gray-400 py-16">
+      <div class="inline-block animate-pulse">
+        <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+        </svg>
+      </div>
+      <p class="text-sm">Loading users...</p>
+    </div>
+  </section>
+</main>
+
+<!-- Floating Add Button -->
+<div class="fixed bottom-28 right-6 z-40">
+  <button id="addUserBtn" class="add-btn w-14 h-14 bg-gradient-to-r from-[#1E3A8A] to-[#2563eb] text-white rounded-2xl shadow-lg flex items-center justify-center hover:shadow-xl transition-all">
+    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+    </svg>
+  </button>
+</div>
+
+<!-- Bottom Navigation – Users and Registrations buttons (Password removed) -->
+<nav class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 flex items-center justify-around py-3 px-4 z-50 shadow-lg">
+  <button id="navUsers" class="nav-btn flex flex-col items-center gap-1 py-2 px-6 rounded-xl bg-[#1E3A8A] text-white shadow-md transition-all">
+    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+    </svg>
+    <span class="text-[10px] font-bold tracking-wide">Users</span>
+  </button>
+  
+  <button id="navRegistrations" class="nav-btn flex flex-col items-center gap-1 py-2 px-6 rounded-xl text-gray-500 hover:text-[#1E3A8A] hover:bg-gray-50 transition-all">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+    </svg>
+    <span class="text-[10px] font-bold tracking-wide">Registrations</span>
+  </button>
+</nav>
+
+<script>
+// Get token from localStorage
+const getToken = () => localStorage.getItem('adminToken');
+const API_BASE = window.location.origin + '/api';
+
+// ========== CHECK FOR TOKEN IN URL ==========
+const urlParams = new URLSearchParams(window.location.search);
+const urlToken = urlParams.get('token');
+if (urlToken) {
+  localStorage.setItem('adminToken', urlToken);
+  console.log('✅ Token saved from URL');
+  window.history.replaceState({}, document.title, window.location.pathname);
+}
+// ============================================
+
+let allUsers = [];
+let currentFilter = 'all';
+let currentSearch = '';
+
+// Check if user is logged in
+function checkAuth() {
+  const token = getToken();
+  if (!token) {
+    window.location.href = '/login.html';
+    return false;
+  }
+  return true;
+}
+
+// Load users from API
+async function loadUsers() {
+  try {
+    console.log('Loading users...');
+    const response = await fetch(`${API_BASE}/admin/users/current`, {
+      headers: { 'Authorization': `Bearer ${getToken()}` }
+    });
+    
+    if (response.status === 401) {
+      console.log('Unauthorized, redirecting to login');
+      localStorage.removeItem('adminToken');
+      window.location.href = '/login.html';
+      return;
+    }
+    
+    const data = await response.json();
+    console.log('Users loaded:', data.data?.length || 0);
+    
+    if (data.success) {
+      allUsers = data.data;
+      renderUsers();
+    } else {
+      showError(data.message);
+    }
+  } catch (err) {
+    console.error('Error loading users:', err);
+    showError('Failed to load users: ' + err.message);
+  }
+}
+
+// Render filtered users
+function renderUsers() {
+  let filtered = [...allUsers];
+  
+  if (currentFilter !== 'all') {
+    filtered = filtered.filter(u => u.role === currentFilter);
+  }
+  
+  if (currentSearch) {
+    const searchLower = currentSearch.toLowerCase();
+    filtered = filtered.filter(u => 
+      (u.name || '').toLowerCase().includes(searchLower) || 
+      (u.email || '').toLowerCase().includes(searchLower) ||
+      (u.employeeId || '').toLowerCase().includes(searchLower)
+    );
+  }
+  
+  const container = document.getElementById('userCardsContainer');
+  
+  if (filtered.length === 0) {
+    container.innerHTML = '<div class="bg-white rounded-2xl p-12 text-center"><div class="text-6xl mb-3">👥</div><h3 class="text-lg font-semibold text-gray-700">No users found</h3><p class="text-gray-400 text-sm mt-1">Try adjusting your search or filter</p></div>';
+    return;
+  }
+  
+  container.innerHTML = filtered.map(user => {
+    const userId = user.id || user._id;
+    const isActive = user.isActive === 1 || user.isActive === true;
+    
+    return `
+    <div class="user-card bg-white rounded-2xl p-5 border border-gray-100 shadow-sm transition-all">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-xl overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center flex-shrink-0">
+          <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(user.name || user.email || 'User')}&background=1E3A8A&color=fff&size=56&rounded=true" alt="Avatar" class="w-full h-full object-cover" />
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap mb-1">
+            <div class="font-bold text-lg text-gray-800 truncate">${escapeHtml(user.name || '')}</div>
+            ${!isActive ? '<span class="status-inactive px-2 py-0.5 rounded-full text-xs font-semibold">INACTIVE</span>' : ''}
+          </div>
+          <p class="text-sm text-gray-500 truncate">${escapeHtml(user.email || '')}</p>
+          <div class="flex items-center gap-2 mt-2 flex-wrap">
+            <span class="px-2 py-1 rounded-lg text-xs font-semibold ${getRoleBadgeClass(user.role)}">${user.role || 'N/A'}</span>
+            ${user.department ? `<span class="text-xs text-gray-400">🏢 ${escapeHtml(user.department)}</span>` : ''}
+            ${!isActive ? '<span class="text-xs text-gray-400">⛔ Cannot login</span>' : ''}
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-gray-400 mb-2">ID: ${escapeHtml(user.employeeId || (userId ? userId.slice(0, 8) : 'N/A'))}</div>
+          <button onclick="editUser('${userId}')" class="px-4 py-2 bg-[#1E3A8A] text-white text-sm font-semibold rounded-xl hover:bg-[#1e40af] transition-all shadow-sm hover:shadow-md">Edit</button>
+        </div>
+      </div>
+    </div>
+  `}).join('');
+}
+
+function getRoleBadgeClass(role) {
+  switch(role) {
+    case 'ADMIN': return 'bg-purple-100 text-purple-700';
+    case 'MANAGER': return 'bg-blue-100 text-blue-700';
+    default: return 'bg-gray-100 text-gray-700';
+  }
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+function showError(message) {
+  const container = document.getElementById('userCardsContainer');
+  container.innerHTML = `<div class="bg-red-50 rounded-2xl p-8 text-center border border-red-200"><div class="text-red-500 text-sm">❌ ${escapeHtml(message)}</div></div>`;
+}
+
+function editUser(userId) {
+  if (!userId) {
+    console.error('Cannot edit: No user ID');
+    alert('Error: User ID is missing');
+    return;
+  }
+  console.log('Editing user:', userId);
+  window.location.href = `/edit-user.html?id=${userId}`;
+}
+
+// Event Listeners
+document.getElementById('searchInput')?.addEventListener('input', (e) => {
+  currentSearch = e.target.value;
+  renderUsers();
+});
+
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => {
+      b.classList.remove('bg-[#1E3A8A]', 'text-white');
+      b.classList.add('bg-white', 'text-gray-600');
+    });
+    btn.classList.remove('bg-white', 'text-gray-600');
+    btn.classList.add('bg-[#1E3A8A]', 'text-white');
+    currentFilter = btn.dataset.filter;
+    renderUsers();
+  });
+});
+
+document.getElementById('addUserBtn')?.addEventListener('click', () => {
+  window.location.href = '/add-user.html';
+});
+
+document.getElementById('navRegistrations')?.addEventListener('click', () => {
+  window.location.href = '/approve-registrations.html';
+});
+
+document.getElementById('logoutBtn')?.addEventListener('click', () => {
+  console.log('Logging out');
+  localStorage.removeItem('adminToken');
+  window.location.href = '/login.html';
+});
+
+// Initialize
+if (checkAuth()) {
+  loadUsers();
+}
+</script>
+</body>
+</html>

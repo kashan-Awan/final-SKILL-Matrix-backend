@@ -1,46 +1,65 @@
 const express = require('express');
 const router = express.Router();
 const requireAdmin = require('../middleware/requireAdmin');
+
 const {
   getAllUsersAdmin,
-  revealPassword,
   adminDeleteUser,
   adminSetPassword,
   getPasswordRequests,
-  revealRequestPassword,
   approvePasswordRequest,
   rejectPasswordRequest,
   getAuditLog,
-  submitPasswordRequest,
 } = require('../controllers/admin.controller');
 
-// ─── User management (all behind requireAdmin) ────────────────────────────────
-// GET    /api/admin/users              — list all users + stats
-// GET    /api/admin/users/:id/reveal-password
-// PATCH  /api/admin/users/:id/set-password
-// DELETE /api/admin/users/:id
+const {
+  getCurrentUsers,
+  getUserForEdit,
+  updateUserByAdmin,
+  deleteUserByAdmin,
+  createUserByAdmin
+} = require('../controllers/user.controller');
 
-router.get('/users',                          requireAdmin, getAllUsersAdmin);
-router.get('/users/:id/reveal-password',      requireAdmin, revealPassword);
-router.patch('/users/:id/set-password',       requireAdmin, adminSetPassword);
-router.delete('/users/:id',                   requireAdmin, adminDeleteUser);
+// ==================== USER MANAGEMENT ====================
 
-// ─── Password-change requests ─────────────────────────────────────────────────
-// POST /api/admin/password-requests                        — user submits (no admin guard)
-// GET  /api/admin/password-requests                        — admin views
-// GET  /api/admin/password-requests/:requestId/reveal-password
-// POST /api/admin/password-requests/:requestId/approve
-// POST /api/admin/password-requests/:requestId/reject
+// GET /api/admin/users/current - Get all active users
+router.get('/users/current', requireAdmin, getCurrentUsers);
 
-router.post('/password-requests',                                   submitPasswordRequest);
-router.get('/password-requests',                      requireAdmin, getPasswordRequests);
-router.get('/password-requests/:requestId/reveal-password', requireAdmin, revealRequestPassword);
-router.post('/password-requests/:requestId/approve',  requireAdmin, approvePasswordRequest);
-router.post('/password-requests/:requestId/reject',   requireAdmin, rejectPasswordRequest);
+// GET /api/admin/users/:id - Get single user for editing
+router.get('/users/:id', requireAdmin, getUserForEdit);
 
-// ─── Audit log ────────────────────────────────────────────────────────────────
-// GET /api/admin/audit-log?page=1&limit=50
+// POST /api/admin/users - Create new user
+router.post('/users', requireAdmin, createUserByAdmin);
 
+// PUT /api/admin/users/:id - Update user
+router.put('/users/:id', requireAdmin, updateUserByAdmin);
+
+// DELETE /api/admin/users/:id - Soft delete user
+router.delete('/users/:id', requireAdmin, deleteUserByAdmin);
+
+// GET /api/admin/users - Get all users with stats
+router.get('/users', requireAdmin, getAllUsersAdmin);
+
+// PATCH /api/admin/users/:id/set-password - Admin set user password
+router.patch('/users/:id/set-password', requireAdmin, adminSetPassword);
+
+// DELETE /api/admin/users/:id/perm - Permanent hard delete (use with caution)
+router.delete('/users/:id/perm', requireAdmin, adminDeleteUser);
+
+// ==================== PASSWORD CHANGE REQUESTS (Admin actions) ====================
+
+// GET /api/admin/password-requests - Admin views all requests (supports ?status=pending etc.)
+router.get('/password-requests', requireAdmin, getPasswordRequests);
+
+// POST /api/admin/password-requests/:requestId/approve - Admin approves a request
+router.post('/password-requests/:requestId/approve', requireAdmin, approvePasswordRequest);
+
+// POST /api/admin/password-requests/:requestId/reject - Admin rejects a request
+router.post('/password-requests/:requestId/reject', requireAdmin, rejectPasswordRequest);
+
+// ==================== AUDIT LOG ====================
+
+// GET /api/admin/audit-log - View audit trail
 router.get('/audit-log', requireAdmin, getAuditLog);
 
 module.exports = router;

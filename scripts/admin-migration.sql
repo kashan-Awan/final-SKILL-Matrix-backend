@@ -8,26 +8,6 @@ USE Dawlance_Skil_Matrix;
 GO
 
 -- =============================================================================
--- STEP 1: Add plain_password column to dawlance_user (if not exists)
--- Stores AES-256-GCM encrypted plaintext in format iv:tag:ciphertext (hex)
--- =============================================================================
-IF NOT EXISTS (
-    SELECT 1
-    FROM   sys.columns
-    WHERE  object_id = OBJECT_ID(N'dawlance_user')
-      AND  name      = N'plain_password'
-)
-BEGIN
-    ALTER TABLE dawlance_user
-        ADD plain_password NVARCHAR(1000) NULL;
-
-    PRINT 'Column plain_password added to dawlance_user.';
-END
-ELSE
-    PRINT 'Column plain_password already exists — skipped.';
-GO
-
--- =============================================================================
 -- STEP 2: Singleton admin enforcement
 -- Filtered unique index: only ONE row may have role = 'ADMIN'
 -- =============================================================================
@@ -65,9 +45,6 @@ BEGIN
 
         -- bcrypt hash of the desired new password
         desired_password_hash   NVARCHAR(500)   NOT NULL,
-
-        -- AES-256-GCM encrypted plaintext (iv:tag:ciphertext)
-        desired_plain_password  NVARCHAR(1000)  NOT NULL,
 
         status                  NVARCHAR(20)    NOT NULL
             CONSTRAINT DF_ppr_status   DEFAULT 'pending'

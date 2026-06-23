@@ -1,8 +1,6 @@
-const crypto = require('crypto');
 const { getPool, sql } = require('../config/db');
 const { sendSuccess, sendError, sendNotFound } = require('../helpers/responseHelper');
-
-const generateId = () => crypto.randomBytes(12).toString('hex');
+const { generateId } = require('../helpers/utils');
 
 const validateDepartmentInput = (name) => {
   if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -19,7 +17,7 @@ const getAllDepartments = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .query('SELECT * FROM departments WHERE is_deleted = 0');
+      .query('SELECT id, name, description, is_deleted, __v, created_at, updated_at FROM departments WHERE is_deleted = 0');
     return sendSuccess(res, result.recordset, 'Departments retrieved successfully');
   } catch (err) {
     return sendError(res, err.message);
@@ -35,8 +33,8 @@ const getDepartmentById = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.Char(24), id)
-      .query('SELECT * FROM departments WHERE id = @id AND is_deleted = 0');
+      .input('id', sql.Char(24), id) // departments.id is char(24)
+      .query('SELECT id, name, description, is_deleted, __v, created_at, updated_at FROM departments WHERE id = @id AND is_deleted = 0');
     if (!result.recordset.length) return sendNotFound(res, 'Department not found');
     return sendSuccess(res, result.recordset[0]);
   } catch (err) {
@@ -55,7 +53,7 @@ const createDepartment = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id',          sql.Char(24),         id)
+      .input('id',          sql.Char(24),         id) // departments.id is char(24)
       .input('name',        sql.NVarChar(255),     name.trim())
       .input('description', sql.NVarChar(sql.MAX), safeDescription)
       .input('now',         sql.DateTime2(7),      now)
@@ -84,7 +82,7 @@ const updateDepartment = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id',          sql.Char(24),         id)
+      .input('id',          sql.Char(24),         id) // departments.id is char(24)
       .input('name',        sql.NVarChar(255),     name.trim())
       .input('description', sql.NVarChar(sql.MAX), safeDescription)
       .query(`
@@ -109,7 +107,7 @@ const deleteDepartment = async (req, res) => {
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.Char(24), id)
+      .input('id', sql.Char(24), id) // departments.id is char(24)
       .query(`
         UPDATE departments
         SET is_deleted = 1, updated_at = GETDATE()

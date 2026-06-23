@@ -1,312 +1,296 @@
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { getPool, sql } = require('../config/db');
-const { sendSuccess, sendError } = require('../helpers/responseHelper');
+const { sendSuccess, sendError, sendNotFound } = require('../helpers/responseHelper');
+const { logAdminAction } = require('../helpers/auditLogger');
 
-// POST /api/auth/login
-const login = async (req, res) => {
+const BCRYPT_ROUNDS = 12;
+
+// Allowed roles (used for validation)
+const ALLOWED_ROLES = ['admin', 'manager', 'employee', 'user'];
+
+// ==================== LOGIN (with role validation) ====================
+async function login(req, res) {
   try {
-    const { email, password, role } = req.body;
-    if (!email || !password || !role) {
-      return sendError(res, 'Email, password and role are required.', 400);
+    const { email, password, role: selectedRole } = req.body;
+
+    if (!email || !password || !selectedRole) {
+      return sendError(res, 'Email, password and role are required', 400);
     }
-    const validRoles = ['admin', 'manager', 'employee', 'user'];
-    if (!validRoles.includes(role)) {
-      return sendError(res, 'Invalid role.', 400);
+
+    // Normalize selected role and handle 'user' -> 'employee' mapping
+    let normalizedSelectedRole = selectedRole.toLowerCase().trim();
+    if (!ALLOWED_ROLES.includes(normalizedSelectedRole)) {
+      return sendError(res, 'Invalid role selection', 400);
     }
-    const dbRole = role === 'user' ? 'employee' : role;
+
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('email', sql.NVarChar, email.toLowerCase())
-      .input('role', sql.NVarChar, dbRole.toUpperCase())
+      .input('identifier', sql.NVarChar, email.trim())
       .query(`
-        SELECT
-          u._id        AS id,
-          u.employeeId,
-          u.role,
-          u.name,
-          u.email,
-          u.password,
-          u.phone,
-          u.gender,
-          u.title,
-          u.yearsExperience,
-          u.hireDate,
-          u.departmentId,
-          d.name AS departmentName
-        FROM dawlance_user u
-        LEFT JOIN departments d ON u.departmentId = d.id AND d.is_deleted = 0
-        WHERE u.email = @email AND UPPER(u.role) = @role AND u.is_deleted = 0
-      `);
-    if (!result.recordset.length) {
-      return sendError(res, 'Invalid email, password or role.', 401);
-    }
-    const user = result.recordset[0];
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return sendError(res, 'Invalid email, password or role.', 401);
-    }
-    return sendSuccess(res, {
-      user: {
-        id:           user.id,
-        name:         user.name,
-        email:        user.email,
-        employeeId:   user.employeeId,
-        role:         user.role,
-        department:   user.departmentName,
-        departmentId: user.departmentId,
-        loginTime:    new Date().toISOString(),
-      },
-    }, 'Login successful');
-    } catch (err) {
-      console.error('Login error:', err);
-      return sendError(res, err.message || 'Internal server error', 500, err.stack);
-    }
-};
-
-// POST /api/auth/validate
-const validate = async (req, res) => {
-  try {
-    const { userId, role } = req.body;
-    if (!userId || !role) {
-      return sendError(res, 'userId and role are required.', 400);
-    }
-    const dbRole = role === 'user' ? 'employee' : role;
-    const pool = await getPool();
-    const result = await pool
-      .request()
-      .input('id', sql.NVarChar, userId)
-      .input('role', sql.NVarChar, dbRole.toUpperCase())
-      .query(`
-        SELECT
-          u._id        AS id,
-          u.employeeId,
-          u.role,
-          u.name,
-          u.email,
-          u.phone,
-          u.gender,
-          u.title,
-          u.yearsExperience,
-          u.hireDate,
-          u.departmentId,
-          d.name AS departmentName
-        FROM dawlance_user u
-        LEFT JOIN departments d ON u.departmentId = d.id AND d.is_deleted = 0
-        WHERE u._id = @id AND UPPER(u.role) = @role AND u.is_deleted = 0
-      `);
-    if (!result.recordset.length) {
-      return sendError(res, 'User not found or session invalid.', 401);
-    }
-    const user = result.recordset[0];
-    return sendSuccess(res, {
-      user: {
-        id:           user.id,
-        name:         user.name,
-        email:        user.email,
-        employeeId:   user.employeeId,
-        role:         user.role,
-        department:   user.departmentName,
-        departmentId: user.departmentId,
-        isValid:      true,
-      },
-    }, 'Session valid');
-  } catch (err) {
-    return sendError(res, err.message);
-  }
-};
-
-// POST /api/auth/forgot-password
-const forgotPassword = async (req, res) => {
-  try {
-    const { email, role } = req.body;
-    if (!email || !role) {
-      return sendError(res, 'Email and role are required.', 400);
-    }
-    const dbRole = role === 'user' ? 'employee' : role;
-    const pool = await getPool();
-    const userResult = await pool
-      .request()
-      .input('email', sql.NVarChar, email.toLowerCase())
-      .input('role', sql.NVarChar, dbRole.toUpperCase())
-      .query(`
-        SELECT _id AS id, name, email
+        SELECT _id, name, email, employeeId, role, password, is_deleted
         FROM dawlance_user
-        WHERE email = @email AND UPPER(role) = @role AND is_deleted = 0
+        WHERE (LOWER(LTRIM(RTRIM(email))) = LOWER(@identifier) OR employeeId = @identifier) 
+          AND is_deleted = 0
+        ORDER BY updatedAt DESC
       `);
-    // Always return success to prevent email enumeration
-    if (!userResult.recordset.length) {
-      return sendSuccess(res, null, 'If this email exists, a reset link has been sent.');
+
+    if (!result.recordset.length) {
+      console.log(`Login Failed: User [${email}] not found or is inactive (is_deleted = 1)`);
+      return sendError(res, 'Invalid email or password', 401);
     }
-    const user = userResult.recordset[0];
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-    // Delete any existing tokens for this user
-    await pool
-      .request()
-      .input('userId', sql.NVarChar, user.id)
-      .query(`DELETE FROM PasswordResetTokens WHERE userId = @userId`);
-    // Save new token
-    await pool
-      .request()
-      .input('userId', sql.NVarChar, user.id)
-      .input('email', sql.NVarChar, email.toLowerCase())
-      .input('role', sql.NVarChar, dbRole)
-      .input('token', sql.NVarChar, token)
-      .input('expiresAt', sql.DateTime, expiresAt)
-      .query(`
-        INSERT INTO PasswordResetTokens (userId, email, role, token, expiresAt, createdAt)
-        VALUES (@userId, @email, @role, @token, @expiresAt, GETDATE())
-      `);
-    const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim();
-    const resetUrl = `${frontendBase}/reset-password?token=${token}&role=${role}`;
-    await sendResetEmail(user.email, user.name, resetUrl);
-    return sendSuccess(res, null, 'If this email exists, a reset link has been sent.');
-  } catch (err) {
-    return sendError(res, err.message);
-  }
-};
 
-// PATCH /api/auth/reset-password
-const resetPassword = async (req, res) => {
-  try {
-    const { userId, email, newPassword, role, token } = req.body;
-    if (!newPassword) return sendError(res, 'newPassword is required.', 400);
-    if (newPassword.length < 6) return sendError(res, 'Password must be at least 6 characters.', 400);
-    const pool = await getPool();
+    console.log(`Login attempt: Found user ${result.recordset[0].email} (ID: ${result.recordset[0].employeeId})`);
 
-    // Token-based reset (from forgot password email link)
-    if (token) {
-      const tokenResult = await pool
-        .request()
-        .input('token', sql.NVarChar, token)
-        .query(`
-          SELECT userId, email, expiresAt
-          FROM PasswordResetTokens
-          WHERE token = @token
-        `);
-      if (!tokenResult.recordset.length) {
-        return sendError(res, 'Invalid or expired reset link. Please request a new one.', 400);
+    const user = result.recordset[0];
+    
+    // Safety: check if hash exists and trim it to handle potential NCHAR padding in SSMS
+    const dbHash = (user.password || '').trim();
+    
+    if (!dbHash || !dbHash.startsWith('$2') || dbHash.length < 50) {
+      console.warn(`CRITICAL: User [${email}] has a non-bcrypt password in DB. Login will fail.`);
+      return sendError(res, 'Invalid email or password', 401);
+    }
+
+    const isMatch = await bcrypt.compare(password, dbHash);
+
+    if (!isMatch) {
+      console.log(`Login Failed: Password mismatch for [${email}]`);
+      return sendError(res, 'Invalid email or password', 401);
+    }
+
+    // 6. Role validation: Strict 1:1 match
+    const dbRole = (user.role || '').toLowerCase().trim();
+
+    // Normalize 'user' and 'employee' as synonyms for comparison
+    const effectiveDbRole = (dbRole === 'user') ? 'employee' : dbRole;
+    const effectiveSelectedRole = (normalizedSelectedRole === 'user') ? 'employee' : normalizedSelectedRole;
+
+    if (effectiveDbRole !== effectiveSelectedRole) {
+      console.log(`Login Failed: Role Mismatch for [${email}]. DB: ${dbRole}, Selected: ${normalizedSelectedRole}`);
+      return sendError(res, `Access Denied: Your account is registered as ${user.role}. Please select the correct role.`, 401);
+    }
+
+    const finalRole = dbRole;
+
+    const token = jwt.sign(
+      { id: user._id.toString().trim(), role: finalRole }, 
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    return sendSuccess(res, {
+      token,
+      user: {
+        id: user._id.toString().trim(),
+        name: (user.name || '').trim(),
+        email: (user.email || '').trim(),
+        role: finalRole,
+        employeeId: (user.employeeId || '').trim()
       }
-      const resetToken = tokenResult.recordset[0];
-      if (new Date(resetToken.expiresAt) < new Date()) {
-        await pool.request()
-          .input('token', sql.NVarChar, token)
-          .query(`DELETE FROM PasswordResetTokens WHERE token = @token`);
-        return sendError(res, 'Reset link has expired. Please request a new one.', 400);
-      }
-      const hashed = await bcrypt.hash(newPassword, 10);
-      await pool
-        .request()
-        .input('id', sql.NVarChar, resetToken.userId)
-        .input('password', sql.NVarChar, hashed)
-        .query(`
-          UPDATE dawlance_user
-          SET password = @password, updatedAt = GETDATE()
-          WHERE _id = @id AND is_deleted = 0
-        `);
-      await pool.request()
-        .input('token', sql.NVarChar, token)
-        .query(`DELETE FROM PasswordResetTokens WHERE token = @token`);
-      return sendSuccess(res, null, 'Password reset successfully');
-    }
-
-    // Direct reset by userId or email (admin use)
-    let targetId = userId;
-    if (!targetId && email) {
-      const dbRole = role === 'user' ? 'employee' : (role || null);
-      const request = pool.request().input('email', sql.NVarChar, email.toLowerCase());
-      let q = 'SELECT _id FROM dawlance_user WHERE email = @email AND is_deleted = 0';
-      if (dbRole) { q += ' AND role = @role'; request.input('role', sql.NVarChar, dbRole); }
-      const found = await request.query(q);
-      if (!found.recordset.length) return sendError(res, 'User not found.', 404);
-      targetId = found.recordset[0]._id;
-    }
-    if (!targetId) return sendError(res, 'userId or email is required.', 400);
-    const hashed = await bcrypt.hash(newPassword, 10);
-    const result = await pool
-      .request()
-      .input('id', sql.NVarChar, targetId)
-      .input('password', sql.NVarChar, hashed)
-      .query(`
-        UPDATE dawlance_user
-        SET password = @password, updatedAt = GETDATE()
-        OUTPUT INSERTED._id
-        WHERE _id = @id AND is_deleted = 0
-      `);
-    if (!result.recordset.length) return sendError(res, 'User not found.', 404);
-    return sendSuccess(res, null, 'Password reset successfully');
+    }, 'Login successful');
   } catch (err) {
-    return sendError(res, err.message);
+    console.error('Login Error:', err); // Log the actual error to terminal
+    return sendError(res, err.message, 500);
   }
-};
+}
 
-// PATCH /api/auth/change-password
-const changePassword = async (req, res) => {
+// ==================== VALIDATE TOKEN ====================
+async function validate(req, res) {
   try {
-    const { userId, currentPassword, newPassword } = req.body;
-    if (!userId || !currentPassword || !newPassword) {
-      return sendError(res, 'userId, currentPassword and newPassword are required.', 400);
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return sendError(res, 'No token provided', 401);
     }
-    if (newPassword.length < 6) {
-      return sendError(res, 'New password must be at least 6 characters.', 400);
-    }
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const pool = await getPool();
     const result = await pool
       .request()
-      .input('id', sql.NVarChar, userId)
+      .input('id', sql.NVarChar(24), decoded.id) // dawlance_user._id is nvarchar(24)
+      .query('SELECT _id AS id, name, email, role FROM dawlance_user WHERE _id = @id AND is_deleted = 0');
+    if (!result.recordset.length) {
+      return sendError(res, 'User not found or inactive', 401);
+    }
+
+    const dbUser = result.recordset[0];
+    const sanitizedUser = {
+      id: dbUser.id.toString().trim(),
+      name: (dbUser.name || '').trim(),
+      email: (dbUser.email || '').trim(),
+      role: (dbUser.role || '').trim()
+    };
+    return res.json({ 
+      success: true, 
+      user: sanitizedUser, 
+      message: 'Token validated' 
+    });
+  } catch (err) {
+    console.error('Validation Error:', err.message);
+    return sendError(res, 'Invalid or expired token', 401);
+  }
+}
+
+// ==================== CHANGE PASSWORD (logged‑in user) ====================
+async function changePassword(req, res) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user?.id;
+    if (!userId) return sendError(res, 'Unauthorized', 401);
+    if (!currentPassword || !newPassword || newPassword.length < 6) {
+      return sendError(res, 'Current password and new password (min 6 chars) required', 400);
+    }
+
+    const pool = await getPool();
+    const result = await pool
+      .request()
+      .input('id', sql.NVarChar(24), userId) // dawlance_user._id is nvarchar(24)
       .query('SELECT password FROM dawlance_user WHERE _id = @id AND is_deleted = 0');
-    if (!result.recordset.length) return sendError(res, 'User not found.', 404);
-    const isMatch = await bcrypt.compare(currentPassword, result.recordset[0].password);
-    if (!isMatch) return sendError(res, 'Current password is incorrect.', 401);
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await pool
-      .request()
-      .input('id', sql.NVarChar, userId)
-      .input('password', sql.NVarChar, hashed)
-      .query('UPDATE dawlance_user SET password = @password, updatedAt = GETDATE() WHERE _id = @id');
+    if (!result.recordset.length) return sendNotFound(res, 'User not found');
+
+    const dbHash = (result.recordset[0].password || '').trim();
+    const isMatch = await bcrypt.compare(currentPassword, dbHash);
+    if (!isMatch) return sendError(res, 'Current password is incorrect', 401);
+
+    const hashedNew = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await pool.request()
+      .input('id', sql.NVarChar(24), userId) // dawlance_user._id is nvarchar(24)
+      .input('newHash', sql.NVarChar, hashedNew)
+      .query('UPDATE dawlance_user SET password = @newHash, updatedAt = GETDATE() WHERE _id = @id');
+
     return sendSuccess(res, null, 'Password changed successfully');
   } catch (err) {
-    return sendError(res, err.message);
+    return sendError(res, err.message, 500);
+  }
+}
+
+// ==================== ADMIN RESET PASSWORD (uses token from request) ====================
+async function resetPasswordDirect(req, res) {
+  try {
+    // The admin's identity is taken from the verified token (set by auth middleware)
+    const adminId = req.user?.id;
+    const adminRole = req.user?.role;
+    if (!adminId || adminRole?.toLowerCase() !== 'admin') {
+      return sendError(res, 'Admin access required', 403);
+    }
+
+    const { userId, newPassword } = req.body;
+    if (!userId || !newPassword || newPassword.length < 6) {
+      return sendError(res, 'User ID and new password (min 6 chars) required', 400);
+    }
+
+    const pool = await getPool();
+    const userCheck = await pool
+      .request()
+      .input('id', sql.NVarChar(24), userId) // dawlance_user._id is nvarchar(24)
+      .query('SELECT _id, role, email FROM dawlance_user WHERE _id = @id AND is_deleted = 0');
+    if (!userCheck.recordset.length) return sendNotFound(res, 'User not found');
+    
+    if ((userCheck.recordset[0].role || '').trim().toLowerCase() === 'admin' && userId !== adminId) {
+      return sendError(res, 'Cannot reset password of another admin', 403);
+    }
+
+    const hashed = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    await pool.request()
+      .input('id', sql.NVarChar(24), userId) // dawlance_user._id is nvarchar(24)
+      .input('password', sql.NVarChar, hashed)
+      .query('UPDATE dawlance_user SET password = @password, updatedAt = GETDATE() WHERE _id = @id');
+
+    await logAdminAction({
+      actorId: adminId,
+      action: 'password_reset_direct',
+      targetId: userId,
+      metadata: { targetEmail: userCheck.recordset[0].email, method: 'admin_direct' }
+    });
+
+    return sendSuccess(res, null, 'Password reset successfully');
+  } catch (err) {
+    return sendError(res, err.message, 500);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USER-FACING: SUBMIT PASSWORD CHANGE REQUEST (public)
+//    Simplified to accept only email, role, newPassword (matches forgot‑password page)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const submitPasswordRequest = async (req, res) => {
+  try {
+    const { email, role, newPassword } = req.body;
+
+    if (!email || !role || !newPassword) {
+      return sendError(res, 'Email, role and new password are required', 400);
+    }
+    if (newPassword.length < 6) {
+      return sendError(res, 'Password must be at least 6 characters', 400);
+    }
+
+    const pool = await getPool();
+
+    // Find user by email first to check for existence and role mismatch
+    const userResult = await pool.request()
+      .input('email', sql.NVarChar, email.trim().toLowerCase())
+      .query(`
+        SELECT _id, name, email, role, is_deleted
+        FROM dawlance_user
+        WHERE LOWER(LTRIM(RTRIM(email))) = @email
+      `);
+
+    if (userResult.recordset.length === 0) {
+      console.log(`Password Request Failed: User [${email}] not found in DB.`);
+      return sendNotFound(res, 'User not found with the provided email');
+    }
+
+    const user = userResult.recordset[0];
+
+    // Validate role and active status
+    if (user.is_deleted || (user.role || '').trim().toLowerCase() !== role.trim().toLowerCase()) {
+      console.log(`Password Request Failed: Role Mismatch or Inactive for [${email}]. Input: [${role}], DB: [${user.role}], Active: [${!user.is_deleted}]`);
+      return sendNotFound(res, 'User not found with the provided email and role');
+    }
+
+    // Admin accounts cannot request password change this way
+    if (user.role.toUpperCase() === 'ADMIN') {
+      return sendError(res, 'Admin manages their own password directly.', 400);
+    }
+
+    // Cancel any existing pending request for this user
+    await pool.request()
+      .input('userId', sql.NVarChar(24), user._id) // pending_password_requests.user_id is nvarchar(24)
+      .query(`
+        UPDATE pending_password_requests
+        SET status = 'rejected', 
+            rejection_reason = 'Superseded by newer request', 
+            resolved_at = GETDATE()
+        WHERE user_id = @userId AND status = 'pending'
+      `);
+
+    const desiredHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+    const requestId = crypto.randomBytes(12).toString('hex'); 
+
+    await pool.request()
+      .input('id', sql.NVarChar(64), requestId) // pending_password_requests.id is nvarchar(64)
+      .input('userId', sql.NVarChar(24), user._id) // pending_password_requests.user_id is nvarchar(24)
+      .input('desiredHash', sql.NVarChar, desiredHash)
+      .query(`
+        INSERT INTO pending_password_requests
+          (id, user_id, desired_password_hash, status, requested_at)
+        VALUES (@id, @userId, @desiredHash, 'pending', GETDATE())
+      `);
+      
+
+    return sendSuccess(res, { requestId }, 'Password change request submitted. Please wait for admin approval.', 201);
+  } catch (err) {
+    return sendError(res, err.message, 500);
   }
 };
 
-// HELPER: Send reset email
-const sendResetEmail = async (toEmail, userName, resetUrl) => {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
-  await transporter.sendMail({
-    from: `"Skills Matrix Portal" <${process.env.SMTP_USER}>`,
-    to: toEmail,
-    subject: 'Reset Your Password — Dawlance Skills Matrix',
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-        <h2 style="color: #1d4ed8;">Password Reset Request</h2>
-        <p>Hi ${userName},</p>
-        <p>We received a request to reset your password for the Skills Matrix Portal.</p>
-        <p>Click the button below. This link expires in <strong>1 hour</strong>.</p>
-        <a href="${resetUrl}"
-          style="display: inline-block; margin: 20px 0; padding: 12px 24px;
-                 background-color: #1d4ed8; color: white; text-decoration: none;
-                 border-radius: 8px; font-weight: bold;">
-          Reset Password
-        </a>
-        <p>If you did not request this, ignore this email.</p>
-        <p style="color: #6b7280; font-size: 12px;">Or copy: ${resetUrl}</p>
-        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-        <p style="color: #6b7280; font-size: 12px;">Dawlance Skills Matrix Portal</p>
-      </div>
-    `,
-  });
+module.exports = {
+  login,
+  validate,
+  changePassword, // Self-service password change
+  resetPasswordDirect, // Admin-initiated password reset
+  submitPasswordRequest // Public password request submission
 };
-
-module.exports = { login, validate, forgotPassword, resetPassword, changePassword };
