@@ -5,7 +5,7 @@ const { getPool } = require('./src/config/db');
 const routes = require('./src/routes');
 const errorHandler = require('./src/middleware/errorHandler');
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 const app = express();
 
