@@ -12,7 +12,7 @@ const BCRYPT_ROUNDS = 12;
 
 const getAllUsersAdmin = async (req, res) => {
   try {
-    const { role, search, sort } = req.query;
+    const { role, search, sort, includeDeleted } = req.query;
     const pool = await getPool();
     const request = pool.request();
 
@@ -23,7 +23,7 @@ const getAllUsersAdmin = async (req, res) => {
     };
     const orderBy = sortMap[sort] || 'u.createdAt DESC';
 
-    let whereClause = `WHERE u.is_deleted = 0`;
+    let whereClause = includeDeleted === 'true' ? `WHERE u.is_deleted = 1` : `WHERE u.is_deleted = 0`;
 
     if (role) {
       const dbRole = role.toUpperCase() === 'USER' ? 'EMPLOYEE' : role.toUpperCase();
@@ -93,7 +93,7 @@ const adminDeleteUser = async (req, res) => {
 
     await pool.request().input('userId', sql.Char(24), id).query(`
       UPDATE dawlance_user
-      SET is_deleted = 1, updatedAt = GETDATE() 
+      SET is_active = 0, updatedAt = GETDATE() 
       WHERE _id = @userId
     `);
 

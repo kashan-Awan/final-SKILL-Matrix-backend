@@ -278,7 +278,8 @@ const getCurrentUsers = async (req, res) => {
           u.yearsExperience,
           u.hireDate,
           u.createdAt,
-          CASE WHEN u.is_deleted = 0 THEN 1 ELSE 0 END AS isActive
+          u.is_deleted AS is_deleted,
+          CASE WHEN u.is_deleted = 0 THEN 1 ELSE 0 END AS is_active
         FROM dawlance_user u
         LEFT JOIN departments d ON u.departmentId = d.id AND d.is_deleted = 0
         ORDER BY u.is_deleted ASC, u.createdAt DESC
