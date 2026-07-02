@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { getPool, sql } = require('../config/db');
+const requireManagerOrAdmin = require('../middleware/requireManagerOrAdmin');
+const { updateUserByAdmin, deleteUserByAdmin } = require('../controllers/user.controller');
 
 // GET /api/employees - fetch all employees with full details and skills (protected)
 router.get('/', async (req, res) => {
@@ -98,5 +100,276 @@ router.get('/', async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// POST /api/employees - Create employee (Manager/Admin only)
+router.post('/', requireManagerOrAdmin, async (req, res) => {
+  try {
+    const { name, displayId, gender, departmentId, skills } = req.body;
+
+    if (!name || !displayId || !departmentId) {
+      return res.status(400).json({ success: false, message: 'Name, displayId (card number), and departmentId are required' });
+    }
+
+    const pool = await getPool();
+
+    // Check if employeeId (displayId) already exists
+    const empCheck = await pool
+      .request()
+      .input('employeeId', sql.NVarChar, displayId.trim())
+      .query('SELECT _id FROM dawlance_user WHERE employeeId = @employeeId OR _id = @employeeId');
+    if (empCheck.recordset.length) {
+      return res.status(400).json({ success: false, message: 'Employee ID (Card Number) already exists' });
+    }
+
+    const { generateId } = require('../helpers/utils');
+    const newId = generateId();
+    const finalId = newId.slice(0, 24); // Limit to 24 chars for Char(24) type check
+    
+    // Check if email already exists or use default
+    const email = `${name.toLowerCase().replace(/\s+/g, '.')}@dawlance.com`;
+    const emailCheck = await pool
+      .request()
+      .input('email', sql.NVarChar, email)
+      .query('SELECT _id FROM dawlance_user WHERE email = @email');
+    
+    let finalEmail = email;
+    if (emailCheck.recordset.length) {
+      finalEmail = `${name.toLowerCase().replace(/\s+/g, '.')}.${displayId}@dawlance.com`;
+    }
+
+    // Hash default password 'Dawlance123'
+    const bcrypt = require('bcryptjs');
+    const hashedPassword = await bcrypt.hash('Dawlance123', 12);
+    const now = new Date();
+
+    // Insert user into dawlance_user
+    await pool
+      .request()
+      .input('id', sql.NVarChar(24), finalId)
+      .input('employeeId', sql.NVarChar, displayId.trim())
+      .input('name', sql.NVarChar, name.trim())
+      .input('email', sql.NVarChar, finalEmail)
+      .input('password', sql.NVarChar, hashedPassword)
+      .input('role', sql.NVarChar, 'EMPLOYEE')
+      .input('departmentId', sql.NVarChar, departmentId.toString())
+      .input('gender', sql.NVarChar, gender.toUpperCase())
+      .input('now', sql.DateTime2, now)
+      .query(`
+        INSERT INTO dawlance_user (
+          _id, employeeId, name, email, password, role,
+          departmentId, phone, gender, title, yearsExperience, hireDate,
+          is_deleted, __v, createdAt, updatedAt
+        ) VALUES (
+          @id, @employeeId, @name, @email, @password, @role,
+          @departmentId, NULL, @gender, 'Production Worker', 0, @now,
+          0, 0, @now, @now
+        )
+      `);
+
+    // Insert skills if provided
+    if (Array.isArray(skills) && skills.length > 0) {
+      for (const skill of skills) {
+        // Find skill ID by skill name
+        const skillCheck = await pool
+          .request()
+          .input('name', sql.NVarChar, skill.name.trim())
+          .query('SELECT _id FROM skills WHERE LOWER(name) = LOWER(@name) AND is_deleted = 0');
+        
+        let skillId;
+        if (skillCheck.recordset.length) {
+          skillId = skillCheck.recordset[0]._id;
+        } else {
+          // If skill doesn't exist, create it
+          skillId = generateId();
+          await pool
+            .request()
+            .input('_id', sql.NVarChar(24), skillId)
+            .input('name', sql.NVarChar, skill.name.trim())
+            .input('now', sql.DateTime2, now)
+            .query(`
+              INSERT INTO skills (
+                _id, name, description, category, isMachineRelated,
+                isCritical, femaleEligible, departmentId, is_deleted, __v, createdAt, updatedAt
+              ) VALUES (
+                @_id, @name, NULL, 'General', 0,
+                0, 1, NULL, 0, 0, @now, @now
+              )
+            `);
+        }
+
+        const skillAssocId = generateId();
+        await pool
+          .request()
+          .input('id', sql.NVarChar(24), skillAssocId)
+          .input('employeeId', sql.NVarChar(24), finalId)
+          .input('skillId', sql.NVarChar(24), skillId)
+          .input('level', sql.NVarChar, skill.level)
+          .input('now', sql.DateTime2, now)
+          .query(`
+            INSERT INTO employee_skills (
+              id, employee_id, skill_id, level, acquired_date,
+              last_assessed_date, notes, is_deleted, __v, created_at, updated_at
+            ) VALUES (
+              @id, @employeeId, @skillId, @level, @now,
+              @now, NULL, 0, 0, @now, @now
+            )
+          `);
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: 'Employee created successfully',
+      data: {
+        id: finalId,
+        name,
+        employeeId: displayId.trim(),
+        gender: gender.toUpperCase(),
+        departmentId,
+        role: 'EMPLOYEE',
+        isActive: true,
+        hireDate: now.toISOString(),
+      }
+    });
+
+  } catch (err) {
+    console.error('Error creating employee:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// PUT /api/employees/:id - Update employee profile and skills (Manager/Admin only)
+router.put('/:id', requireManagerOrAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, displayId, gender, departmentId, skills } = req.body;
+
+    if (!name || !displayId || !departmentId) {
+      return res.status(400).json({ success: false, message: 'Name, displayId (card number), and departmentId are required' });
+    }
+
+    const pool = await getPool();
+
+    // Check if target user exists and is not deleted
+    const checkResult = await pool
+      .request()
+      .input('id', sql.NVarChar(24), id)
+      .query('SELECT _id, role, is_deleted FROM dawlance_user WHERE _id = @id AND is_deleted = 0');
+    if (!checkResult.recordset.length) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    // Check if employeeId (displayId) is in use by another user
+    const empCheck = await pool
+      .request()
+      .input('employeeId', sql.NVarChar, displayId.trim())
+      .input('id', sql.NVarChar(24), id)
+      .query('SELECT _id FROM dawlance_user WHERE employeeId = @employeeId AND _id != @id');
+    if (empCheck.recordset.length) {
+      return res.status(400).json({ success: false, message: 'Employee ID (Card Number) is already in use by another account' });
+    }
+
+    // Update basic details in dawlance_user
+    await pool
+      .request()
+      .input('id', sql.NVarChar(24), id)
+      .input('name', sql.NVarChar, name.trim())
+      .input('employeeId', sql.NVarChar, displayId.trim())
+      .input('gender', sql.NVarChar, gender.toUpperCase())
+      .input('departmentId', sql.NVarChar, departmentId.toString())
+      .query(`
+        UPDATE dawlance_user
+        SET name = @name,
+            employeeId = @employeeId,
+            gender = @gender,
+            departmentId = @departmentId,
+            updatedAt = GETDATE()
+        WHERE _id = @id
+      `);
+
+    // Soft delete all existing skills for this employee
+    await pool
+      .request()
+      .input('employeeId', sql.NVarChar(24), id)
+      .query('UPDATE employee_skills SET is_deleted = 1 WHERE employee_id = @employeeId');
+
+    // Insert/update new skills
+    if (Array.isArray(skills) && skills.length > 0) {
+      const { generateId } = require('../helpers/utils');
+      for (const skill of skills) {
+        // Find skill ID by skill name
+        const skillCheck = await pool
+          .request()
+          .input('name', sql.NVarChar, skill.name.trim())
+          .query('SELECT _id FROM skills WHERE LOWER(name) = LOWER(@name) AND is_deleted = 0');
+        
+        let skillId;
+        const now = new Date();
+        if (skillCheck.recordset.length) {
+          skillId = skillCheck.recordset[0]._id;
+        } else {
+          skillId = generateId();
+          await pool
+            .request()
+            .input('_id', sql.NVarChar(24), skillId)
+            .input('name', sql.NVarChar, skill.name.trim())
+            .input('now', sql.DateTime2, now)
+            .query(`
+              INSERT INTO skills (
+                _id, name, description, category, isMachineRelated,
+                isCritical, femaleEligible, departmentId, is_deleted, __v, createdAt, updatedAt
+              ) VALUES (
+                @_id, @name, NULL, 'General', 0,
+                0, 1, NULL, 0, 0, @now, @now
+              )
+            `);
+        }
+
+        // Check if there is an existing soft-deleted skill row we can reuse/restore, or insert new
+        const existingSkillCheck = await pool
+          .request()
+          .input('employeeId', sql.NVarChar(24), id)
+          .input('skillId', sql.NVarChar(24), skillId)
+          .query('SELECT id FROM employee_skills WHERE employee_id = @employeeId AND skill_id = @skillId');
+
+        if (existingSkillCheck.recordset.length) {
+          const assocId = existingSkillCheck.recordset[0].id;
+          await pool
+            .request()
+            .input('id', sql.NVarChar(24), assocId)
+            .input('level', sql.NVarChar, skill.level)
+            .query('UPDATE employee_skills SET level = @level, is_deleted = 0, updated_at = GETDATE() WHERE id = @id');
+        } else {
+          const skillAssocId = generateId();
+          await pool
+            .request()
+            .input('id', sql.NVarChar(24), skillAssocId)
+            .input('employeeId', sql.NVarChar(24), id)
+            .input('skillId', sql.NVarChar(24), skillId)
+            .input('level', sql.NVarChar, skill.level)
+            .input('now', sql.DateTime2, now)
+            .query(`
+              INSERT INTO employee_skills (
+                id, employee_id, skill_id, level, acquired_date,
+                last_assessed_date, notes, is_deleted, __v, created_at, updated_at
+              ) VALUES (
+                @id, @employeeId, @skillId, @level, @now,
+                @now, NULL, 0, 0, @now, @now
+              )
+            `);
+        }
+      }
+    }
+
+    return res.json({ success: true, message: 'Employee updated successfully' });
+
+  } catch (err) {
+    console.error('Error updating employee:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/employees/:id - Delete employee (Manager/Admin only)
+router.delete('/:id', requireManagerOrAdmin, deleteUserByAdmin);
 
 module.exports = router;

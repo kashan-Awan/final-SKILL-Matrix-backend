@@ -178,12 +178,12 @@ const updateSkillMatrix = async (req, res) => {
       .input('name', sql.NVarChar, name)
       .input('description', sql.NVarChar, description || null)
       .input('matrixData', sql.NVarChar, matrixData ? JSON.stringify(matrixData) : null)
-      .input('version', sql.NVarChar, version)
+      .input('version', sql.NVarChar, version || null)
       .input('isActive', sql.Bit, isActive != null ? isActive : 1)
       .query(`
         UPDATE skill_matrix
         SET name = @name, description = @description, matrixData = @matrixData,
-            version = @version, isActive = @isActive, updatedAt = GETDATE()
+            version = COALESCE(@version, version), isActive = @isActive, updatedAt = GETDATE()
         OUTPUT INSERTED.*
         WHERE _id = @id AND is_deleted = 0
       `);

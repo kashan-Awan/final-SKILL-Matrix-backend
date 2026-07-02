@@ -9,9 +9,9 @@ const BCRYPT_ROUNDS = 12;
 // Public registration - creates pending request (only bcrypt hash, no plaintext)
 const submitRegistrationRequest = async (req, res) => {
   try {
-    const { name, email, employeeId, password, role } = req.body;
+    const { name, email, employeeId, password, role, gender } = req.body;
 
-    if (!name || !email || !password || !role) {
+    if (!name || !email || !password || !role || !gender) {
       return sendError(res, 'All fields are required.', 400);
     }
     if (password.length < 6) {
@@ -71,11 +71,12 @@ const submitRegistrationRequest = async (req, res) => {
       .input('employeeId', sql.NVarChar, (employeeId && employeeId.trim() !== '') ? employeeId.trim() : null)
       .input('passwordHash', sql.NVarChar, passwordHash)
       .input('role', sql.NVarChar, role.toUpperCase())
+      .input('gender', sql.NVarChar, gender || null)
       .query(`
         INSERT INTO pending_user_registrations 
-        (id, name, email, employee_id, password_hash, role, status, requested_at)
+        (id, name, email, employee_id, password_hash, role, status, requested_at, gender)
         VALUES 
-        (@id, @name, @email, @employeeId, @passwordHash, @role, 'pending', GETDATE())
+        (@id, @name, @email, @employeeId, @passwordHash, @role, 'pending', GETDATE(), @gender)
       `);
 
     return sendSuccess(res, { requestId: id }, 'Registration request submitted. Please wait for admin approval.', 201);
@@ -136,7 +137,7 @@ const approveRegistrationRequest = async (req, res) => {
       const requestResult = await new sql.Request(transaction)
         .input('id', sql.NVarChar(64), requestId) // pending_user_registrations.id is nvarchar(64)
         .query(`
-          SELECT id, name, email, employee_id, password_hash, role 
+          SELECT id, name, email, employee_id, password_hash, role, gender 
           FROM pending_user_registrations 
           WHERE id = @id AND status = 'pending'`);
 
@@ -180,12 +181,13 @@ const approveRegistrationRequest = async (req, res) => {
         .input('email', sql.NVarChar, emailLower)
         .input('password', sql.NVarChar, request.password_hash)
         .input('role', sql.NVarChar, request.role)
+        .input('gender', sql.NVarChar, request.gender || null)
         .input('now', sql.DateTime2, now)
         .query(`
           INSERT INTO dawlance_user 
-          (_id, employeeId, name, email, password, role, is_deleted, __v, createdAt, updatedAt)
+          (_id, employeeId, name, email, password, role, gender, is_deleted, __v, createdAt, updatedAt)
           VALUES 
-          (@_id, @employeeId, @name, @email, @password, @role, 0, 0, @now, @now)
+          (@_id, @employeeId, @name, @email, @password, @role, @gender, 0, 0, @now, @now)
         `);
 
       await new sql.Request(transaction)
