@@ -10,12 +10,12 @@ const PORT = process.env.PORT || 5001;
 const app = express();
 
 // Middleware
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
-  : ['http://localhost:3000', 'http://localhost:5173'];
+// const allowedOrigins = process.env.FRONTEND_URL
+//   ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
+//   : ['http://localhost:3000', 'http://localhost:5173'];
 
 app.use(cors({
-  origin: allowedOrigins,
+  origin: '*',
   credentials: true
 }));
 

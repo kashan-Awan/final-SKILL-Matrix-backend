@@ -15,15 +15,12 @@ async function login(req, res) {
   try {
     const { email, password, role: selectedRole } = req.body;
 
-    if (!email || !password || !selectedRole) {
-      return sendError(res, 'Email, password and role are required', 400);
+    // Do not require or validate role from client; role must come from DB.
+    // Keep existing error handling for invalid email/password via existing code paths.
+    if (!email || !password) {
+      return sendError(res, 'Email and password are required', 400);
     }
 
-    // Normalize selected role and handle 'user' -> 'employee' mapping
-    let normalizedSelectedRole = selectedRole.toLowerCase().trim();
-    if (!ALLOWED_ROLES.includes(normalizedSelectedRole)) {
-      return sendError(res, 'Invalid role selection', 400);
-    }
 
     const pool = await getPool();
     const result = await pool
@@ -61,19 +58,9 @@ async function login(req, res) {
       return sendError(res, 'Invalid email or password', 401);
     }
 
-    // 6. Role validation: Strict 1:1 match
-    const dbRole = (user.role || '').toLowerCase().trim();
+    // Role must come from DB only.
+    const finalRole = (user.role || '').toLowerCase().trim();
 
-    // Normalize 'user' and 'employee' as synonyms for comparison
-    const effectiveDbRole = (dbRole === 'user') ? 'employee' : dbRole;
-    const effectiveSelectedRole = (normalizedSelectedRole === 'user') ? 'employee' : normalizedSelectedRole;
-
-    if (effectiveDbRole !== effectiveSelectedRole) {
-      console.log(`Login Failed: Role Mismatch for [${email}]. DB: ${dbRole}, Selected: ${normalizedSelectedRole}`);
-      return sendError(res, `Access Denied: Your account is registered as ${user.role}. Please select the correct role.`, 401);
-    }
-
-    const finalRole = dbRole;
 
     const token = jwt.sign(
       { id: user._id.toString().trim(), role: finalRole }, 
